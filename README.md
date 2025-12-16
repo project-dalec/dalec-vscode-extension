@@ -55,3 +55,9 @@ If `specFile` is omitted the extension attempts to use the currently-focused Dal
 - The provider depends on the Red Hat YAML extension (`redhat.vscode-yaml`). Install it to surface completions and validation—this extension declares the dependency so VS Code will prompt you automatically.
 - Target discovery requires a working Docker + Buildx setup because the extension shells out to `docker buildx build --call targets ...`. Failures fall back to whatever `targets:` entries are defined in the spec.
 - Build contexts are only uploaded when the spec references the `context` source type. When this happens, the extension prompts for each required context name (default `context` included, defaulting to `.`). Specs without context sources automatically run with an empty temporary context so you don’t accidentally ship your working tree. Prompts accept absolute/relative paths as well as BuildKit context references (for example `docker-image://repo/image:tag`, `type=local,src=vendor`, `git://github.com/...`), and the extension passes them through unchanged.
+
+## Extension when installed
+
+User can download vsix or buidl one and then use `extension manager` in vscode to install this extension for test reasons, once successfully installed it will show up like this in user's extension manager.
+
+![](resources/extension-when-installed.png)
