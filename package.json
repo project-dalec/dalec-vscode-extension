@@ -1,0 +1,145 @@
+{
+  "name": "dalec-vscode-tools",
+  "displayName": "dalec-vscode-tools",
+  "description": "dalec vscode extension for developers",
+  "version": "0.0.1-alpha",
+  "publisher": "ms-kubernetes-tools",
+  "icon": "resources/dalec.png",
+  "engines": {
+    "vscode": "^1.106.1"
+  },
+  "categories": [
+    "Other"
+  ],
+  "extensionDependencies": [
+    "redhat.vscode-yaml"
+  ],
+  "activationEvents": [
+    "onDebug:dalec-buildx"
+  ],
+  "preview": true,
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "dalec-vscode-tools.buildCurrentSpec",
+        "title": "Dalec: Build Current Spec"
+      },
+      {
+        "command": "dalec-vscode-tools.rerunLastAction",
+        "title": "Dalec: Rerun Last Action"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "dalec-vscode-tools.buildCurrentSpec",
+          "when": "resourceLangId == yaml",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "dalec-vscode-tools.buildCurrentSpec",
+          "when": "resourceLangId == yaml",
+          "group": "navigation"
+        }
+      ]
+    },
+    "breakpoints": [
+      {
+        "language": "yaml"
+      }
+    ],
+    "configuration": {
+      "title": "Dalec Spec",
+      "properties": {
+        "dalec-spec.buildxCommand": {
+          "type": "string",
+          "default": "docker buildx",
+          "description": "Command used to invoke buildx (e.g. 'docker buildx' or '/path/to/buildx')."
+        }
+      }
+    },
+    "debuggers": [
+      {
+        "type": "dalec-buildx",
+        "label": "Dalec Buildx (docker buildx dap)",
+        "enableBreakpointsFor": [
+          {
+            "language": "yaml"
+          }
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "target"
+            ],
+            "properties": {
+              "target": {
+                "type": "string",
+                "description": "Name of the dalec target to debug",
+                "default": ""
+              },
+              "specFile": {
+                "type": "string",
+                "description": "Path to the dalec spec file (defaults to active editor)",
+                "default": ""
+              },
+              "context": {
+                "type": "string",
+                "description": "Build context directory (defaults to workspace root)",
+                "default": ""
+              },
+              "buildArgs": {
+                "type": "object",
+                "description": "Additional --build-arg values keyed by arg name",
+                "default": {}
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "name": "Dalec: Buildx Debug Current Spec",
+            "type": "dalec-buildx",
+            "request": "launch",
+            "target": "example",
+            "specFile": "${file}"
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.106.1",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.39.1",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.1",
+    "webpack": "^5.103.0",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "yaml": "^2.8.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/project-dalec/dalec-vscode-extension"
+  }
+}
