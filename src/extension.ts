@@ -61,6 +61,9 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('dalec-vscode-tools.rerunLastActionBuild', () =>
       rerunLastAction(tracker, lastAction, 'build'),
     ),
+    vscode.commands.registerCommand('dalec-vscode-tools.rerunLastActionDebug', () =>
+      rerunLastAction(tracker, lastAction, 'debug'),
+    ),
 
 	context.subscriptions.push(disposable);
 }

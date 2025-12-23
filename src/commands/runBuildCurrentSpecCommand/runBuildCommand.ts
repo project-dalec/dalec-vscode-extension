@@ -124,13 +124,13 @@ export class DalecCodeLensProvider implements vscode.CodeLensProvider, vscode.Di
     if (last && last.specUri.toString() === document.uri.toString()) {
       lenses.push(
         new vscode.CodeLens(range, {
-          command: 'dalec.rerunLastActionDebug',
+          command: 'dalec-vscode-tools.rerunLastActionDebug',
           title: `Dalec: Debug (${last.target})`,
         }),
       );
       lenses.push(
         new vscode.CodeLens(range, {
-          command: 'dalec.rerunLastActionBuild',
+          command: 'dalec-vscode-tools.rerunLastActionBuild',
           title: `Dalec: Build (${last.target})`,
         }),
       );

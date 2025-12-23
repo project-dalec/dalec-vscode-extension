@@ -15,7 +15,10 @@
     "redhat.vscode-yaml"
   ],
   "activationEvents": [
-    "onDebug:dalec-buildx"
+    "onDebug:dalec-buildx",
+    "onLanguage:yaml",
+    "workspaceContains:**/*.yaml",
+    "workspaceContains:**/*.yml"
   ],
   "preview": true,
   "main": "./dist/extension.js",
