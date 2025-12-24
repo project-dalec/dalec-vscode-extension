@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import { DalecCodeLensProvider, DalecDebugAdapterDescriptorFactory, DalecDebugAdapterTrackerFactory, DalecDebugConfigurationProvider, LastDalecActionState, runBuildCommand } from './commands/runBuildCurrentSpecCommand/runBuildCommand';
 import { DalecDocumentTracker, DalecSchemaProvider } from './commands/runBuildCurrentSpecCommand/dalecDocumentTracker';
+import { DalecStatusBarManager } from './commands/runBuildCurrentSpecCommand/dalecStatusBar';
 import { rerunLastAction } from './commands/reRunLastAction/reRunLastAction';
 
 const DEBUG_TYPE = 'dalec-buildx';
@@ -26,6 +27,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	const schemaProvider = new DalecSchemaProvider(context, tracker);
 	await schemaProvider.initialize();
 	context.subscriptions.push(schemaProvider);
+
+	// Status bar for Dalec spec recognition feedback
+	const statusBarManager = new DalecStatusBarManager(tracker);
+	context.subscriptions.push(statusBarManager);
 
 	const codeLensProvider = new DalecCodeLensProvider(tracker, lastAction);
 	context.subscriptions.push(
