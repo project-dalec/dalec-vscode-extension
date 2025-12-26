@@ -1,5 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { promisify } from 'util';
+import { execFile, spawn } from 'child_process';
+
+const execFileAsync = promisify(execFile);
 
 export interface DockerCommand {
   binary: string;
@@ -21,6 +25,134 @@ export interface DockerCommandInputs {
 export type DockerCommandMode = 'build' | 'dap';
 
 let dalecOutputChannel: vscode.OutputChannel | undefined;
+
+export interface DalecResolveResult {
+  name?: string;
+  version?: string;
+  revision?: string;
+}
+
+/**
+ * Resolves image metadata (name, version, revision) from a Dalec YAML file
+ * using the dalec.resolve command with docker buildx.
+ * 
+ * This function executes: docker buildx build --call dalec.resolve,format=json -< path/to/dalecfile.yaml
+ * 
+ * The dalec.resolve command processes the Dalec spec file and returns structured metadata
+ * about the image that would be built, including the package name, version, and revision.
+ * This metadata is used to construct appropriate image tags for the build.
+ * 
+ * @param specFilePath - Absolute path to the Dalec YAML specification file
+ * @returns Promise resolving to an object containing name, version, and revision fields.
+ *          Fields may be undefined if not present in the spec or if resolution fails.
+ * 
+ * @example
+ * const metadata = await resolveDalecImageMetadata('/path/to/dalec-spec.yaml');
+ * if (metadata.name && metadata.version) {
+ *   const imageTag = `${metadata.name}:${metadata.version}`;
+ * }
+ */
+export async function resolveDalecImageMetadata(specFilePath: string): Promise<DalecResolveResult> {
+  try {
+    // Get the directory containing the spec file to use as the working directory
+    const contextPath = path.dirname(specFilePath);
+    
+    // Retrieve the configured buildx command (defaults to 'docker buildx')
+    // This allows users to customize the docker command if needed
+    const buildxSetting = vscode.workspace.getConfiguration('dalec-spec').get('buildxCommand', 'docker buildx').trim();
+    const parts = buildxSetting.split(/\s+/);
+    const binary = parts.shift() || 'docker';
+    
+    // Construct the command arguments for dalec.resolve
+    // Use -< to read from the specified file
+    const args = [...parts, 'build', '--call', 'dalec.resolve,format=json', `-<${specFilePath}`];
+    
+    // Execute the command and capture output
+    const result = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+      const childProcess = spawn(binary, args, {
+        cwd: contextPath,
+        env: {
+          ...process.env,
+          BUILDX_EXPERIMENTAL: '1', // Enable experimental buildx features required for --call
+        },
+      });
+
+      // Accumulate stdout and stderr as the process runs
+      let stdout = '';
+      let stderr = '';
+
+      // Capture standard output (where the JSON result will be)
+      childProcess.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString();
+      });
+
+      // Capture standard error (for logging and error handling)
+      childProcess.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+
+      // Handle process spawn errors (e.g., binary not found)
+      childProcess.on('error', (error: Error) => {
+        reject(error);
+      });
+
+      // Handle process completion
+      childProcess.on('close', (code: number | null) => {
+        if (code === 0) {
+          resolve({ stdout, stderr });
+        } else {
+          reject(new Error(`Process exited with code ${code}: ${stderr}`));
+        }
+      });
+    });
+
+    // Parse the JSON output from dalec.resolve
+    // Note: The result may be an array of JSON objects, so we access the first element
+    const parsed = JSON.parse(result.stdout);
+
+    // Extract metadata fields from the parsed result
+    // Convert revision to string if present, as it may be returned as a number
+    const metadata: DalecResolveResult = {
+      name: parsed[0].name || undefined,
+      version: parsed[0].version || undefined,
+      revision: parsed[0].revision !== undefined ? String(parsed[0].revision) : undefined,
+    };
+
+    // Validate that all expected metadata fields are present
+    // Missing fields may indicate an incomplete or invalid Dalec spec
+    const missingFields: string[] = [];
+    if (!metadata.name) {
+      missingFields.push('name');
+    }
+    if (!metadata.version) {
+      missingFields.push('version');
+    }
+    if (!metadata.revision) {
+      missingFields.push('revision');
+    }
+
+    // Warn the user if any required fields are missing
+    // This helps guide them to fix their Dalec spec file
+    if (missingFields.length > 0) {
+      const message = `Warning: The following fields are missing or empty in your Dalec spec: ${missingFields.join(', ')}. ` +
+                      `This may affect image tagging. Please ensure these fields are defined in your YAML file.`;
+      void vscode.window.showWarningMessage(message);
+      getDalecOutputChannel().appendLine(`[Dalec] ${message}`);
+    }
+
+    return metadata;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    getDalecOutputChannel().appendLine(`[Dalec] Failed to resolve image metadata: ${errorMessage}`);
+    
+    void vscode.window.showErrorMessage(
+      `Failed to resolve Dalec image metadata. Please ensure your YAML file is valid and Docker is running. Error: ${errorMessage}`
+    );
+    
+    return {};
+  }
+}
+
 
 export function createDockerBuildxCommand(inputs: DockerCommandInputs): DockerCommand {
   const buildxSetting = vscode.workspace.getConfiguration('dalec-spec').get('buildxCommand', 'docker buildx').trim();
