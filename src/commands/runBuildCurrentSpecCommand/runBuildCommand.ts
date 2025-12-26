@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { DalecDocumentTracker } from './dalecDocumentTracker';
-import { createDockerBuildxCommand, logDockerCommand } from './utils/dockerHelpers';
+import { createDockerBuildxCommand, logDockerCommand, resolveDalecImageMetadata } from './utils/dockerHelpers';
 import { getWorkspaceRootForUri, getWorkspaceRootForPath } from './utils/pathHelpers';
 import { collectContextSelection, collectArgsSelection, type ContextSelection, type ArgsSelection } from './helpers/contextHelpers';
 import { pickTarget } from './helpers/targetHelpers';
-import { resolveDalecDocument, isValidDalecDoc, extractDalecSpecMetadata } from './helpers/documentHelpers';
+import { resolveDalecDocument, isValidDalecDoc } from './helpers/documentHelpers';
 import { rewriteSourcePathsForBreakpoints, logDapTraffic } from './helpers/dapHelpers';
 import { recordFromMap, mapFromRecord } from './utils/conversionHelpers';
 import { getTerminalCommentPrefix } from './utils/terminalHelpers';
@@ -59,8 +59,8 @@ export async function runBuildCommand(
     return;
   }
 
-  // Extract name, version, and revision from the Dalec spec
-  const specMetadata = await extractDalecSpecMetadata(document);
+  // Extract name, version, and revision from the Dalec spec using dalec.resolve
+  const specMetadata = await resolveDalecImageMetadata(document.uri.fsPath);
 
   // Construct image tag as version-revision
   let imageTag: string | undefined;
