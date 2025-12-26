@@ -107,8 +107,15 @@ export async function resolveDalecImageMetadata(specFilePath: string): Promise<D
     });
 
     // Parse the JSON output from dalec.resolve
-    // Note: The result may be an array of JSON objects, so we access the first element
     const parsed = JSON.parse(result.stdout);
+
+    // Validate that the result is an array with at least one element
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      const errorMsg = `Unexpected response format from dalec.resolve: ${typeof parsed === 'object' ? 'empty array or non-array object' : typeof parsed}`;
+      getDalecOutputChannel().appendLine(`[Dalec] ${errorMsg}`);
+      void vscode.window.showWarningMessage(`Dalec resolve returned unexpected format. Check output for details.`);
+      return {};
+    }
 
     // Extract metadata fields from the parsed result
     // Convert revision to string if present, as it may be returned as a number
