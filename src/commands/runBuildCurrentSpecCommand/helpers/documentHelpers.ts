@@ -45,11 +45,14 @@ export async function resolveDalecDocument(
     return activeDoc;
   }
 
-  void vscode.window.showErrorMessage('Open a Dalec spec (first line must start with #syntax=...) to continue.');
+  void vscode.window.showErrorMessage(
+    'Open a Dalec spec (first line must start with #syntax=...). ' +
+    'Configure accepted directives in Settings → Dalec Spec → Syntax Directives.'
+  );
   return undefined;
 }
 
-export async function isValidDalecDoc(): Promise<void> {
+export async function isValidDalecDoc(tracker: DalecDocumentTracker): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     return;
@@ -63,16 +66,11 @@ export async function isValidDalecDoc(): Promise<void> {
     return;
   }
 
-  const firstLine = doc.lineAt(0).text.trim();
-
-  const isDalec =
-    firstLine.startsWith('# syntax=ghcr.io/project-dalec/dalec/frontend:latest') ||
-    (firstLine.startsWith('#') && firstLine.includes('-dalec')) ||
-    (firstLine.startsWith('#') && firstLine.includes('/dalec/'));
-
-  if (!isDalec) {
+  // Use the tracker's validation which respects configured directives
+  if (!tracker.isDalecDocument(doc)) {
     vscode.window.showInformationMessage(
-      "This YAML file is not a Dalec file (missing Dalec syntax header)."
+      "This YAML file is not a Dalec file (syntax directive not recognized). " +
+      "Configure accepted directives in Settings → Dalec Spec → Syntax Directives."
     );
     return;
   }

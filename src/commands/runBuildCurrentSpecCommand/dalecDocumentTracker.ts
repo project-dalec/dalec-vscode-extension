@@ -1,7 +1,12 @@
 import * as vscode from 'vscode';
 import YAML, { LineCounter, Pair, visit } from 'yaml';
 
-const SYNTAX_REGEX = /^#\s*(?:syntax|sytnax)\s*=\s*(?<image>ghcr\.io\/(?:project-dalec|azure)\/dalec\/frontend:[^\s#]+|[^\s#]*dalec[^\s#]*)/i;
+// Legacy regex for built-in Dalec frontend patterns
+const LEGACY_SYNTAX_REGEX = /^#\s*syntax\s*=\s*(?<image>ghcr\.io\/(?:project-dalec|azure)\/dalec\/frontend:[^\s#]+|[^\s#]*dalec[^\s#]*)/i;
+
+// Regex to extract the image from a syntax directive for custom directive matching
+const SYNTAX_DIRECTIVE_REGEX = /^#\s*syntax\s*=\s*(?<image>[^\s#]+)/i;
+
 const contextSelectionCache = new Map<string, ContextSelection>();
 const argsSelectionCache = new Map<string, ArgsSelection>();
 const YAML_EXTENSION_ID = 'redhat.vscode-yaml';
@@ -27,6 +32,130 @@ interface ContextSelection {
 
 type DalecSpecDocument = Record<string, unknown>;
 
+/**
+ * Validates a directive pattern and returns an error message if invalid.
+ * Valid patterns: exact strings or strings ending with a single '*' (suffix wildcard).
+ */
+function validateDirectivePattern(pattern: string): string | undefined {
+  if (!pattern || pattern.trim().length === 0) {
+    return 'Empty pattern is not allowed';
+  }
+
+  const wildcardCount = (pattern.match(/\*/g) || []).length;
+
+  if (wildcardCount === 0) {
+    // Exact match pattern - valid
+    return undefined;
+  }
+
+  if (wildcardCount > 1) {
+    return `Multiple wildcards not supported: "${pattern}"`;
+  }
+
+  if (!pattern.endsWith('*')) {
+    return `Wildcard must be at the end of the pattern: "${pattern}"`;
+  }
+
+  // Single suffix wildcard - valid
+  return undefined;
+}
+
+/**
+ * Returns the configured syntax directives from VS Code settings.
+ * Validates patterns and warns about invalid ones.
+ */
+function getConfiguredSyntaxDirectives(): string[] {
+  const config = vscode.workspace.getConfiguration('dalec-spec');
+  const directives = config.get<string[]>('syntaxDirectives', ['ghcr.io/project-dalec/dalec/frontend:latest']);
+  
+  // Validate and filter patterns, warning about invalid ones
+  const validDirectives: string[] = [];
+  const invalidPatterns: string[] = [];
+
+  for (const pattern of directives) {
+    const error = validateDirectivePattern(pattern);
+    if (error) {
+      invalidPatterns.push(error);
+    } else {
+      validDirectives.push(pattern);
+    }
+  }
+
+  // Show warning once per invalid configuration (debounced via static flag)
+  if (invalidPatterns.length > 0 && !getConfiguredSyntaxDirectives.hasWarnedInvalidPatterns) {
+    getConfiguredSyntaxDirectives.hasWarnedInvalidPatterns = true;
+    void vscode.window.showWarningMessage(
+      `Dalec: Invalid syntax directive patterns will be ignored:\n${invalidPatterns.join('\n')}`,
+      'Open Settings'
+    ).then((selection) => {
+      if (selection === 'Open Settings') {
+        void vscode.commands.executeCommand('workbench.action.openSettings', 'dalec-spec.syntaxDirectives');
+      }
+    });
+    // Reset flag after a delay to allow re-warning if user changes config again
+    setTimeout(() => {
+      getConfiguredSyntaxDirectives.hasWarnedInvalidPatterns = false;
+    }, 5000);
+  }
+
+  return validDirectives;
+}
+// Static property for warning debounce
+getConfiguredSyntaxDirectives.hasWarnedInvalidPatterns = false;
+
+/**
+ * Returns whether legacy/built-in directives should be accepted.
+ */
+function getAllowLegacyDirectives(): boolean {
+  const config = vscode.workspace.getConfiguration('dalec-spec');
+  return config.get<boolean>('allowLegacyDirectives', true);
+}
+
+/**
+ * Checks if a syntax directive image matches a pattern.
+ * Supports wildcard suffix with '*' (e.g., 'ghcr.io/org/image:*' matches 'ghcr.io/org/image:v1.0').
+ * Assumes pattern has been validated (single suffix wildcard or exact match).
+ */
+function matchesDirective(image: string, pattern: string): boolean {
+  const normalizedImage = image.toLowerCase();
+  const normalizedPattern = pattern.toLowerCase();
+
+  if (normalizedPattern.endsWith('*')) {
+    const prefix = normalizedPattern.slice(0, -1);
+    return normalizedImage.startsWith(prefix);
+  }
+
+  return normalizedImage === normalizedPattern;
+}
+
+/**
+ * Validates if the first line of a document contains a valid Dalec syntax directive.
+ * Checks configured directives first, then falls back to legacy patterns if enabled.
+ */
+export function isValidSyntaxDirective(firstLine: string): boolean {
+  // Extract the image from the directive
+  const match = SYNTAX_DIRECTIVE_REGEX.exec(firstLine);
+  if (!match?.groups?.image) {
+    return false;
+  }
+
+  const image = match.groups.image;
+  const configuredDirectives = getConfiguredSyntaxDirectives();
+
+  // Check configured directives first (user's explicit configuration takes priority)
+  if (configuredDirectives.some((pattern) => matchesDirective(image, pattern))) {
+    return true;
+  }
+
+  // Fall back to legacy patterns if enabled
+  const allowLegacy = getAllowLegacyDirectives();
+  if (allowLegacy && LEGACY_SYNTAX_REGEX.test(firstLine)) {
+    return true;
+  }
+
+  return false;
+}
+
 export class DalecDocumentTracker implements vscode.Disposable {
   private readonly tracked = new Map<string, DalecDocumentMetadata>();
   private readonly disposables: vscode.Disposable[] = [];
@@ -41,6 +170,13 @@ export class DalecDocumentTracker implements vscode.Disposable {
         const key = doc.uri.toString();
         if (this.tracked.delete(key)) {
           this.changeEmitter.fire(doc.uri);
+        }
+      }),
+      // Re-evaluate all documents when configuration changes
+      vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration('dalec-spec.syntaxDirectives') ||
+            event.affectsConfiguration('dalec-spec.allowLegacyDirectives')) {
+          this.reevaluateAllDocuments();
         }
       }),
     );
@@ -67,6 +203,22 @@ export class DalecDocumentTracker implements vscode.Disposable {
     return this.tracked.get(key);
   }
 
+  private reevaluateAllDocuments() {
+    // Warn if configuration would reject all documents
+    const configuredDirectives = getConfiguredSyntaxDirectives();
+    const allowLegacy = getAllowLegacyDirectives();
+    if (configuredDirectives.length === 0 && !allowLegacy) {
+      void vscode.window.showWarningMessage(
+        'Dalec: No syntax directives configured and legacy directives disabled. ' +
+        'All Dalec specs will be rejected. Add directives to "dalec-spec.syntaxDirectives" ' +
+        'or enable "dalec-spec.allowLegacyDirectives".'
+      );
+    }
+
+    // Re-evaluate all open text documents when settings change
+    vscode.workspace.textDocuments.forEach((doc) => this.evaluate(doc));
+  }
+
   private evaluate(document: vscode.TextDocument) {
     if (!this.isYamlFile(document)) {
       this.delete(document.uri);
@@ -74,7 +226,7 @@ export class DalecDocumentTracker implements vscode.Disposable {
     }
 
     const firstLine = document.lineCount > 0 ? document.lineAt(0).text.trim() : '';
-    if (!firstLine || !SYNTAX_REGEX.test(firstLine)) {
+    if (!firstLine || !isValidSyntaxDirective(firstLine)) {
       this.delete(document.uri);
       return;
     }

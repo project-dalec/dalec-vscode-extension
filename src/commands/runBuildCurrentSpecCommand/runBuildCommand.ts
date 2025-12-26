@@ -38,7 +38,7 @@ export async function runBuildCommand(
   tracker: DalecDocumentTracker,
   lastAction: LastDalecActionState,
 ) {
-  await isValidDalecDoc();
+  await isValidDalecDoc(tracker);
   const document = await resolveDalecDocument(uri, tracker);
   if (!document) {
     return;

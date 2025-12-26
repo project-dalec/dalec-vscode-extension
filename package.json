@@ -61,6 +61,21 @@
           "type": "string",
           "default": "docker buildx",
           "description": "Command used to invoke buildx (e.g. 'docker buildx' or '/path/to/buildx')."
+        },
+        "dalec-spec.syntaxDirectives": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "ghcr.io/project-dalec/dalec/frontend:latest"
+          ],
+          "markdownDescription": "List of accepted Dalec frontend syntax directives. Files with `# syntax=<directive>` matching any of these values will be treated as valid Dalec specs.\n\n**Wildcard support:** Only suffix wildcards using `*` are supported. The `*` must be at the end of the pattern.\n\n**Examples:**\n- `ghcr.io/org/image:latest` — matches exactly `ghcr.io/org/image:latest`\n- `ghcr.io/org/image:*` — matches `ghcr.io/org/image:latest`, `ghcr.io/org/image:v1.0`, etc.\n- `my-registry.io/dalec:*` — matches any tag for `my-registry.io/dalec`\n\n**Not supported:**\n- `ghcr.io/*/image:latest` (wildcards in the middle)\n- `*.io/org/image:latest` (wildcards at the start)\n- `ghcr.io/org/image:v1.*` (wildcards not at the end)"
+        },
+        "dalec-spec.allowLegacyDirectives": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "When enabled, also accept legacy/built-in directives (`ghcr.io/project-dalec/dalec/frontend:*`, `ghcr.io/azure/dalec/frontend:*`, and any image containing 'dalec'). Set to `false` to only accept directives listed in `syntaxDirectives`.\n\n**Warning:** If this is `false` and `syntaxDirectives` is empty, no Dalec specs will be recognized."
         }
       }
     },
