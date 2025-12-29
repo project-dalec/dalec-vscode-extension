@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as YAML from 'yaml';
 import { DalecDocumentTracker } from '../dalecDocumentTracker';
+import { Errorable, getErrorMessage } from '../../utils/errorable';
 
 export interface DalecSpecMetadata {
   name?: string;
@@ -10,20 +11,25 @@ export interface DalecSpecMetadata {
 
 /**
  * Extracts name, version, and revision from a Dalec spec file
+ * @returns An Errorable containing the metadata or an error message
  */
-export async function extractDalecSpecMetadata(document: vscode.TextDocument): Promise<DalecSpecMetadata> {
+export async function extractDalecSpecMetadata(document: vscode.TextDocument): Promise<Errorable<DalecSpecMetadata>> {
   try {
     const content = document.getText();
     const parsed = YAML.parse(content);
     
-    return {
+    const metadata: DalecSpecMetadata = {
       name: typeof parsed?.name === 'string' ? parsed.name : undefined,
       version: typeof parsed?.version === 'string' ? parsed.version : undefined,
       revision: parsed?.revision !== undefined ? String(parsed.revision) : undefined,
     };
+
+    return { succeeded: true, result: metadata };
   } catch (error) {
-    console.error('Failed to parse Dalec spec:', error);
-    return {};
+    return { 
+      succeeded: false, 
+      error: `Failed to parse Dalec spec: ${getErrorMessage(error)}` 
+    };
   }
 }
 

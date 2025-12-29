@@ -5,7 +5,8 @@ import { createDockerBuildxCommand, logDockerCommand, resolveDalecImageMetadata 
 import { getWorkspaceRootForUri, getWorkspaceRootForPath } from './utils/pathHelpers';
 import { collectContextSelection, collectArgsSelection, type ContextSelection, type ArgsSelection } from './helpers/contextHelpers';
 import { pickTarget } from './helpers/targetHelpers';
-import { resolveDalecDocument, isValidDalecDoc } from './helpers/documentHelpers';
+import { resolveDalecDocument, isValidDalecDoc, extractDalecSpecMetadata, DalecSpecMetadata } from './helpers/documentHelpers';
+import { failed } from '../utils/errorable';
 import { rewriteSourcePathsForBreakpoints, logDapTraffic } from './helpers/dapHelpers';
 import { recordFromMap, mapFromRecord } from './utils/conversionHelpers';
 import { getTerminalCommentPrefix } from './utils/terminalHelpers';
@@ -59,8 +60,19 @@ export async function runBuildCommand(
     return;
   }
 
-  // Extract name, version, and revision from the Dalec spec using dalec.resolve
-  const specMetadata = await resolveDalecImageMetadata(document.uri.fsPath);
+  // Extract name, version, and revision from the Dalec spec
+  const specMetadataResult = await extractDalecSpecMetadata(document);
+  
+  // Default to empty metadata if extraction fails, but warn the user
+  let specMetadata: DalecSpecMetadata;
+  if (failed(specMetadataResult)) {
+    void vscode.window.showWarningMessage(
+      `Could not extract metadata from spec: ${specMetadataResult.error}. Build will continue without image name/version.`
+    );
+    specMetadata = {};
+  } else {
+    specMetadata = specMetadataResult.result;
+  }
 
   // Construct image tag as version-revision
   let imageTag: string | undefined;

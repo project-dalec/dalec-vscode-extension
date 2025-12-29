@@ -1,11 +1,10 @@
 import * as vscode from 'vscode';
-import { promisify } from 'util';
-import { execFile, type ExecFileOptionsWithStringEncoding } from 'child_process';
 import { DalecDocumentTracker } from '../dalecDocumentTracker';
 import { getSpecWorkspacePath } from '../utils/pathHelpers';
 import { getDockerErrorMessage } from '../utils/dockerHelpers';
+import { execFile } from '../../utils/shell';
+import { failed } from '../../utils/errorable';
 
-const execFileAsync = promisify(execFile);
 const FRONTEND_TARGET_CACHE_TTL_MS = 5 * 60 * 1000;
 const frontendTargetCache = new Map<string, FrontendTargetCacheEntry>();
 
@@ -111,17 +110,26 @@ export async function getFrontendTargets(document: vscode.TextDocument): Promise
       try {
         const contextPath = getSpecWorkspacePath(document);
         const args = ['buildx', 'build', '--call', 'targets', '-f', document.uri.fsPath, contextPath];
-        const execOptions: ExecFileOptionsWithStringEncoding = {
+        
+        const shellResult = await execFile('docker', args, {
           cwd: contextPath,
           env: {
             ...process.env,
             BUILDX_EXPERIMENTAL: '1',
           },
-          maxBuffer: 20 * 1024 * 1024,
-          encoding: 'utf8',
-        };
-        const { stdout } = await execFileAsync('docker', args, execOptions);
-        const parsed = parseTargetsFromOutput(stdout);
+        });
+
+        if (failed(shellResult)) {
+          const errorMessage = getDockerErrorMessage(shellResult.error);
+          void vscode.window.showWarningMessage(errorMessage, 'View Documentation').then((selection) => {
+            if (selection === 'View Documentation') {
+              vscode.env.openExternal(vscode.Uri.parse('https://docs.docker.com/get-docker/'));
+            }
+          });
+          return cached?.targets;
+        }
+
+        const parsed = parseTargetsFromOutput(shellResult.result.stdout);
         if (parsed.length > 0) {
           frontendTargetCache.set(key, { targets: parsed, timestamp: Date.now() });
         }
