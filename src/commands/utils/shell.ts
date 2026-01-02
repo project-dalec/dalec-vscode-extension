@@ -32,9 +32,14 @@ export enum NonZeroExitCodeBehaviour {
  * Node.js uses different property names for exit codes:
  * - execFile (async) errors have 'code' property
  * - execFileSync (sync) errors have 'status' property
+ * Also, handle error.code can be 'ENOENT' for file not found.
  */
-function getExitCode(error: any, isSync: boolean): number {
-  return isSync ? (error.status ?? 1) : (error.code ?? 1);
+function getExitCode(error: unknown, isSync: boolean): number {
+  const e = error as { status?: number; code?: number | string };
+  if (isSync) {
+    return typeof e.status === 'number' ? e.status : 1;
+  }
+  return typeof e.code === 'number' ? e.code : 1;
 }
 
 /**

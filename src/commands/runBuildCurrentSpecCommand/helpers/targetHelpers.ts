@@ -107,35 +107,19 @@ export async function getFrontendTargets(document: vscode.TextDocument): Promise
       cancellable: false,
     },
     async () => {
-      try {
-        const contextPath = getSpecWorkspacePath(document);
-        const args = ['buildx', 'build', '--call', 'targets', '-f', document.uri.fsPath, contextPath];
-        
-        const shellResult = await execFile('docker', args, {
-          cwd: contextPath,
-          env: {
-            ...process.env,
-            BUILDX_EXPERIMENTAL: '1',
-          },
-        });
+      const contextPath = getSpecWorkspacePath(document);
+      const args = ['buildx', 'build', '--call', 'targets', '-f', document.uri.fsPath, contextPath];
+      
+      const shellResult = await execFile('docker', args, {
+        cwd: contextPath,
+        env: {
+          ...process.env,
+          BUILDX_EXPERIMENTAL: '1',
+        },
+      });
 
-        if (failed(shellResult)) {
-          const errorMessage = getDockerErrorMessage(shellResult.error);
-          void vscode.window.showWarningMessage(errorMessage, 'View Documentation').then((selection) => {
-            if (selection === 'View Documentation') {
-              vscode.env.openExternal(vscode.Uri.parse('https://docs.docker.com/get-docker/'));
-            }
-          });
-          return cached?.targets;
-        }
-
-        const parsed = parseTargetsFromOutput(shellResult.result.stdout);
-        if (parsed.length > 0) {
-          frontendTargetCache.set(key, { targets: parsed, timestamp: Date.now() });
-        }
-        return parsed;
-      } catch (error) {
-        const errorMessage = getDockerErrorMessage(error);
+      if (failed(shellResult)) {
+        const errorMessage = getDockerErrorMessage(shellResult.error);
         void vscode.window.showWarningMessage(errorMessage, 'View Documentation').then((selection) => {
           if (selection === 'View Documentation') {
             vscode.env.openExternal(vscode.Uri.parse('https://docs.docker.com/get-docker/'));
@@ -143,6 +127,12 @@ export async function getFrontendTargets(document: vscode.TextDocument): Promise
         });
         return cached?.targets;
       }
+
+      const parsed = parseTargetsFromOutput(shellResult.result.stdout);
+      if (parsed.length > 0) {
+        frontendTargetCache.set(key, { targets: parsed, timestamp: Date.now() });
+      }
+      return parsed;
     },
   );
 }
