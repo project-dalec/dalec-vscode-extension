@@ -29,6 +29,10 @@
         "title": "Dalec: Build Current Spec"
       },
       {
+        "command": "dalec-vscode-tools.debugCurrentSpec",
+        "title": "Dalec: Debug Current Spec"
+      },
+      {
         "command": "dalec-vscode-tools.rerunLastAction",
         "title": "Dalec: Rerun Last Action"
       }
@@ -39,6 +43,11 @@
           "command": "dalec-vscode-tools.buildCurrentSpec",
           "when": "resourceLangId == yaml",
           "group": "navigation"
+        },
+        {
+          "command": "dalec-vscode-tools.debugCurrentSpec",
+          "when": "resourceLangId == yaml",
+          "group": "navigation"
         }
       ],
       "explorer/context": [
@@ -46,14 +55,14 @@
           "command": "dalec-vscode-tools.buildCurrentSpec",
           "when": "resourceLangId == yaml",
           "group": "navigation"
+        },
+        {
+          "command": "dalec-vscode-tools.debugCurrentSpec",
+          "when": "resourceLangId == yaml",
+          "group": "navigation"
         }
       ]
     },
-    "breakpoints": [
-      {
-        "language": "yaml"
-      }
-    ],
     "configuration": {
       "title": "Dalec Spec",
       "properties": {
@@ -83,11 +92,6 @@
       {
         "type": "dalec-buildx",
         "label": "Dalec Buildx (docker buildx dap)",
-        "enableBreakpointsFor": [
-          {
-            "language": "yaml"
-          }
-        ],
         "configurationAttributes": {
           "launch": {
             "required": [
