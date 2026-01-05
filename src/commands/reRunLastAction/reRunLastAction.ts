@@ -6,6 +6,7 @@ import { BuildTargetInfo } from '../runBuildCurrentSpecCommand/helpers/targetHel
 import { getWorkspaceRootForUri } from '../runBuildCurrentSpecCommand/utils/pathHelpers';
 import { ArgsSelection, collectArgsSelection, collectContextSelection, ContextSelection } from '../runBuildCurrentSpecCommand/helpers/contextHelpers';
 import { createDockerBuildxCommand, logDockerCommand } from '../runBuildCurrentSpecCommand/utils/dockerHelpers';
+import { recordFromMap } from '../runBuildCurrentSpecCommand/utils/conversionHelpers';
 import { getTerminalCommentPrefix } from '../runBuildCurrentSpecCommand/utils/terminalHelpers';
 
 export async function rerunLastAction(
@@ -68,6 +69,20 @@ export async function rerunLastAction(
     terminal.show();
     terminal.sendText(`${getTerminalCommentPrefix()} Dalec command: ${formattedCommand}`);
     terminal.sendText(formattedCommand);
+  } else if (actionType === 'debug') {
+    const debugConfig: vscode.DebugConfiguration = {
+      type: 'dalec-buildx',
+      name: `Dalec Debug (${entry.target})`,
+      request: 'launch',
+      target: entry.target,
+      specFile: entry.specUri.fsPath,
+      context: contextSelection.defaultContextPath,
+      buildContexts: recordFromMap(contextSelection.additionalContexts),
+      buildArgs: recordFromMap(argsSelection.values),
+      dalecContextResolved: true,
+    };
+
+    await vscode.debug.startDebugging(folder, debugConfig);
   }
 }
 

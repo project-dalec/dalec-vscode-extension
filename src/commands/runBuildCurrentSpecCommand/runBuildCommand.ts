@@ -12,6 +12,7 @@ import { getTerminalCommentPrefix } from './utils/terminalHelpers';
 import { getEmptyContextDir } from './helpers/contextHelpers';
 
 const BUILD_COMMAND = 'dalec-vscode-tools.buildCurrentSpec';
+const DEBUG_COMMAND = 'dalec-vscode-tools.debugCurrentSpec';
 
 interface LastDalecAction {
   type: 'build' | 'debug';
@@ -104,6 +105,56 @@ export async function runBuildCommand(
   });
 }
 
+export async function runDebugCommand(
+  uri: vscode.Uri | undefined,
+  tracker: DalecDocumentTracker,
+  lastAction: LastDalecActionState,
+) {
+  await isValidDalecDoc(tracker);
+  const document = await resolveDalecDocument(uri, tracker);
+  if (!document) {
+    return;
+  }
+
+  const target = await pickTarget(document, tracker, 'Select a Dalec target to debug');
+  if (!target) {
+    return;
+  }
+
+  const contextSelection = await collectContextSelection(document, tracker);
+  if (!contextSelection) {
+    return;
+  }
+
+  const argsSelection = await collectArgsSelection(document, tracker);
+  if (!argsSelection) {
+    return;
+  }
+
+  const debugConfig: vscode.DebugConfiguration = {
+    type: 'dalec-buildx',
+    name: `Dalec Debug (${target})`,
+    request: 'launch',
+    target,
+    specFile: document.uri.fsPath,
+    context: contextSelection.defaultContextPath,
+    buildContexts: recordFromMap(contextSelection.additionalContexts),
+    buildArgs: recordFromMap(argsSelection.values),
+    dalecContextResolved: true,
+  };
+
+  const folder = vscode.workspace.getWorkspaceFolder(document.uri);
+  await vscode.debug.startDebugging(folder, debugConfig);
+
+  lastAction.record({
+    type: 'debug',
+    target,
+    specUri: document.uri,
+    contexts: contextSelection,
+    args: argsSelection,
+  });
+}
+
 export class DalecCodeLensProvider implements vscode.CodeLensProvider, vscode.Disposable {
   private readonly emitter = new vscode.EventEmitter<void>();
   readonly onDidChangeCodeLenses = this.emitter.event;
@@ -125,15 +176,12 @@ export class DalecCodeLensProvider implements vscode.CodeLensProvider, vscode.Di
         title: 'Dalec: Build',
         arguments: [document.uri],
       }),
+      new vscode.CodeLens(range, {
+        command: DEBUG_COMMAND,
+        title: 'Dalec: Debug',
+        arguments: [document.uri],
+      }),
     ];
-
-    // lenses.unshift(
-    //   new vscode.CodeLens(range, {
-    //     command: DEBUG_COMMAND,
-    //     title: 'Dalec: Debug',
-    //     arguments: [document.uri],
-    //   }),
-    // );
 
     const last = this.lastAction.get();
     if (last && last.specUri.toString() === document.uri.toString()) {
