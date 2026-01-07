@@ -1,6 +1,6 @@
 {
   "name": "dalec-vscode-tools",
-  "displayName": "dalec-vscode-tools",
+  "displayName": "DALEC VSCode Tools",
   "description": "dalec vscode extension for developers",
   "version": "0.0.1-alpha",
   "publisher": "ms-kubernetes-tools",
