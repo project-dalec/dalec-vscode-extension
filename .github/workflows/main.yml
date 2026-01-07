@@ -1,4 +1,4 @@
-name: Build & Publish
+name: Main Build
 on: [workflow_dispatch]
 
 jobs:
