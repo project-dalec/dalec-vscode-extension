@@ -32,6 +32,12 @@ export interface DalecResolveResult {
   revision?: string;
 }
 
+export interface DalecResolveOptions {
+  target?: string;
+  buildArgs?: Map<string, string>;
+  buildContexts?: Map<string, string>;
+}
+
 /**
  * Resolves image metadata (name, version, revision) from a Dalec YAML file
  * using the dalec.resolve command with docker buildx.
@@ -43,6 +49,7 @@ export interface DalecResolveResult {
  * This metadata is used to construct appropriate image tags for the build.
  * 
  * @param specFilePath - Absolute path to the Dalec YAML specification file
+ * @param options - Optional build settings to ensure metadata is resolved with actual build args/contexts
  * @returns Promise resolving to an object containing name, version, and revision fields.
  *          Fields may be undefined if not present in the spec or if resolution fails.
  * 
@@ -52,7 +59,10 @@ export interface DalecResolveResult {
  *   const imageTag = `${metadata.name}:${metadata.version}`;
  * }
  */
-export async function resolveDalecImageMetadata(specFilePath: string): Promise<DalecResolveResult> {
+export async function resolveDalecImageMetadata(
+  specFilePath: string,
+  options: DalecResolveOptions = {},
+): Promise<DalecResolveResult> {
   try {
     // Get the directory containing the spec file to use as the working directory
     const contextPath = path.dirname(specFilePath);
@@ -65,7 +75,17 @@ export async function resolveDalecImageMetadata(specFilePath: string): Promise<D
     
     // Construct the command arguments for dalec.resolve
     // Use -< to read from the specified file
-    const args = [...parts, 'build', '--call', 'dalec.resolve,format=json', `-<${specFilePath}`];
+    const args = [...parts, 'build', '--call', 'dalec.resolve,format=json'];
+    if (options.target) {
+      args.push('--target', options.target);
+    }
+    if (options.buildArgs && options.buildArgs.size > 0) {
+      args.push(...formatBuildArgs(options.buildArgs));
+    }
+    if (options.buildContexts && options.buildContexts.size > 0) {
+      args.push(...buildContextArgs(options.buildContexts));
+    }
+    args.push(`-<${specFilePath}`);
     
     // Execute the command and capture output
     const result = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
