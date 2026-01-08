@@ -9,7 +9,7 @@ import { resolveDalecDocument, isValidDalecDoc, extractDalecSpecMetadata, DalecS
 import { failed } from '../utils/errorable';
 import { rewriteSourcePathsForBreakpoints, logDapTraffic } from './helpers/dapHelpers';
 import { recordFromMap, mapFromRecord } from './utils/conversionHelpers';
-import { getTerminalCommentPrefix } from './utils/terminalHelpers';
+import { getBuildTerminalName, getOrCreateTerminal, getTerminalCommentPrefix } from './utils/terminalHelpers';
 import { getEmptyContextDir } from './helpers/contextHelpers';
 
 const BUILD_COMMAND = 'dalec-vscode-tools.buildCurrentSpec';
@@ -95,8 +95,8 @@ export async function runBuildCommand(
   });
 
   const formattedCommand = logDockerCommand('Build command', dockerCommand);
-  const terminal = vscode.window.createTerminal({
-    name: `Dalec Build (${target})`,
+  const terminalName = getBuildTerminalName(target, document.uri);
+  const terminal = getOrCreateTerminal(terminalName, {
     cwd: getWorkspaceRootForUri(document.uri),
     env: {
       ...process.env,

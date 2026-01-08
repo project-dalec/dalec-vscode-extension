@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { DalecCodeLensProvider, DalecDebugAdapterDescriptorFactory, DalecDebugAdapterTrackerFactory, DalecDebugConfigurationProvider, LastDalecActionState, runBuildCommand, runDebugCommand } from './commands/runBuildCurrentSpecCommand/runBuildCommand';
 import { DalecDocumentTracker, DalecSchemaProvider } from './commands/runBuildCurrentSpecCommand/dalecDocumentTracker';
 import { DalecStatusBarManager } from './commands/runBuildCurrentSpecCommand/dalecStatusBar';
+import { registerTerminalCleanup } from './commands/runBuildCurrentSpecCommand/utils/terminalHelpers';
 import { rerunLastAction } from './commands/reRunLastAction/reRunLastAction';
 
 const DEBUG_TYPE = 'dalec-buildx';
@@ -37,6 +38,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.languages.registerCodeLensProvider([{ language: 'yaml' }, { language: 'yml' }], codeLensProvider),
 		codeLensProvider,
 	);
+	context.subscriptions.push(registerTerminalCleanup());
 
 	const debugProvider = new DalecDebugConfigurationProvider(tracker);
 	context.subscriptions.push(
@@ -79,4 +81,3 @@ export async function activate(context: vscode.ExtensionContext) {
 
 // This method is called when your extension is deactivated
 export function deactivate() {}
-
