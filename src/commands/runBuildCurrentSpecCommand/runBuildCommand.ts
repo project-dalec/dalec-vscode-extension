@@ -3,6 +3,7 @@ import * as path from 'path';
 import { DalecDocumentTracker } from './dalecDocumentTracker';
 import { createDockerBuildxCommand, logDockerCommand, resolveDalecImageMetadata } from './utils/dockerHelpers';
 import { getWorkspaceRootForUri, getWorkspaceRootForPath } from './utils/pathHelpers';
+import { getDalecSharedTerminalSession } from './utils/terminalManager';
 import { collectContextSelection, collectArgsSelection, type ContextSelection, type ArgsSelection } from './helpers/contextHelpers';
 import { pickTarget } from './helpers/targetHelpers';
 import { resolveDalecDocument, isValidDalecDoc, extractDalecSpecMetadata, DalecSpecMetadata } from './helpers/documentHelpers';
@@ -63,7 +64,7 @@ export async function runBuildCommand(
 
   // Extract name, version, and revision from the Dalec spec
   const specMetadataResult = await extractDalecSpecMetadata(document);
-  
+
   // Default to empty metadata if extraction fails, but warn the user
   let specMetadata: DalecSpecMetadata;
   if (failed(specMetadataResult)) {
@@ -95,15 +96,8 @@ export async function runBuildCommand(
   });
 
   const formattedCommand = logDockerCommand('Build command', dockerCommand);
-  const terminal = vscode.window.createTerminal({
-    name: `Dalec Build (${target})`,
-    cwd: getWorkspaceRootForUri(document.uri),
-    env: {
-      ...process.env,
-      BUILDX_EXPERIMENTAL: '1',
-    },
-  });
 
+  const terminal = getDalecSharedTerminalSession(getWorkspaceRootForUri(document.uri));
   terminal.show();
   terminal.sendText(`${getTerminalCommentPrefix()} Dalec command: ${formattedCommand}`);
   terminal.sendText(formattedCommand);

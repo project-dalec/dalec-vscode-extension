@@ -4,6 +4,7 @@ import { LastDalecActionState } from "../runBuildCurrentSpecCommand/runBuildComm
 import { resolveDalecDocument } from '../runBuildCurrentSpecCommand/helpers/documentHelpers';
 import { BuildTargetInfo } from '../runBuildCurrentSpecCommand/helpers/targetHelpers';
 import { getWorkspaceRootForUri } from '../runBuildCurrentSpecCommand/utils/pathHelpers';
+import { getDalecSharedTerminalSession } from '../runBuildCurrentSpecCommand/utils/terminalManager';
 import { ArgsSelection, collectArgsSelection, collectContextSelection, ContextSelection } from '../runBuildCurrentSpecCommand/helpers/contextHelpers';
 import { createDockerBuildxCommand, logDockerCommand } from '../runBuildCurrentSpecCommand/utils/dockerHelpers';
 import { recordFromMap } from '../runBuildCurrentSpecCommand/utils/conversionHelpers';
@@ -58,14 +59,7 @@ export async function rerunLastAction(
       buildContexts: contextSelection.additionalContexts,
     });
     const formattedCommand = logDockerCommand('Build command', dockerCommand);
-    const terminal = vscode.window.createTerminal({
-      name: `Dalec Build (${entry.target})`,
-      cwd: getWorkspaceRootForUri(entry.specUri),
-      env: {
-        ...process.env,
-        BUILDX_EXPERIMENTAL: '1',
-      },
-    });
+    const terminal = getDalecSharedTerminalSession(getWorkspaceRootForUri(entry.specUri));
     terminal.show();
     terminal.sendText(`${getTerminalCommentPrefix()} Dalec command: ${formattedCommand}`);
     terminal.sendText(formattedCommand);
