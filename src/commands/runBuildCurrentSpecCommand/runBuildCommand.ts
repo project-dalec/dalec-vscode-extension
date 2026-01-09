@@ -5,8 +5,7 @@ import { createDockerBuildxCommand, logDockerCommand, resolveDalecImageMetadata 
 import { getWorkspaceRootForUri, getWorkspaceRootForPath } from './utils/pathHelpers';
 import { collectContextSelection, collectArgsSelection, type ContextSelection, type ArgsSelection } from './helpers/contextHelpers';
 import { pickTarget } from './helpers/targetHelpers';
-import { resolveDalecDocument, isValidDalecDoc, extractDalecSpecMetadata, DalecSpecMetadata } from './helpers/documentHelpers';
-import { failed } from '../utils/errorable';
+import { resolveDalecDocument, isValidDalecDoc } from './helpers/documentHelpers';
 import { rewriteSourcePathsForBreakpoints, logDapTraffic } from './helpers/dapHelpers';
 import { recordFromMap, mapFromRecord } from './utils/conversionHelpers';
 import { getTerminalCommentPrefix } from './utils/terminalHelpers';
@@ -61,26 +60,17 @@ export async function runBuildCommand(
     return;
   }
 
-  // Extract name, version, and revision from the Dalec spec
-  const specMetadataResult = await extractDalecSpecMetadata(document);
-  
-  // Default to empty metadata if extraction fails, but warn the user
-  let specMetadata: DalecSpecMetadata;
-  if (failed(specMetadataResult)) {
-    void vscode.window.showWarningMessage(
-      `Could not extract metadata from spec: ${specMetadataResult.error}. Build will continue without image name/version.`
-    );
-    specMetadata = {};
-  } else {
-    specMetadata = specMetadataResult.result;
-  }
+  const resolvedMetadata = await resolveDalecImageMetadata(document.uri.fsPath, {
+    target,
+    buildArgs: argsSelection.values,
+    buildContexts: contextSelection.additionalContexts,
+  });
 
-  // Construct image tag as version-revision
   let imageTag: string | undefined;
-  if (specMetadata.version && specMetadata.revision) {
-    imageTag = `${specMetadata.version}-${specMetadata.revision}`;
-  } else if (specMetadata.version) {
-    imageTag = specMetadata.version;
+  if (resolvedMetadata.version && resolvedMetadata.revision) {
+    imageTag = `${resolvedMetadata.version}-${resolvedMetadata.revision}`;
+  } else if (resolvedMetadata.version) {
+    imageTag = resolvedMetadata.version;
   }
 
   const dockerCommand = createDockerBuildxCommand({
@@ -90,7 +80,7 @@ export async function runBuildCommand(
     context: contextSelection.defaultContextPath,
     buildArgs: argsSelection.values,
     buildContexts: contextSelection.additionalContexts,
-    imageName: specMetadata.name,
+    imageName: resolvedMetadata.name,
     imageTag,
   });
 
