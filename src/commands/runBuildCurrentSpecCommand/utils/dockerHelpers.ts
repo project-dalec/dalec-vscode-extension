@@ -71,7 +71,7 @@ export async function resolveDalecImageMetadata(
     const binary = parts.shift() || 'docker';
     
     // Construct the command arguments for dalec.resolve
-    // Use -< to read from the specified file
+    // Use -f to specify the spec file and . as the context
     const args = [...parts, 'build', '--call', 'dalec.resolve,format=json'];
     if (options.target) {
       args.push('--target', options.target);
@@ -82,7 +82,7 @@ export async function resolveDalecImageMetadata(
     if (options.buildContexts && options.buildContexts.size > 0) {
       args.push(...buildContextArgs(options.buildContexts));
     }
-    args.push(`-<${specFilePath}`);
+    args.push('-f', specFilePath, '.');
     
     // Execute the command and capture output
     const result = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
