@@ -171,34 +171,26 @@ export class DalecCodeLensProvider implements vscode.CodeLensProvider, vscode.Di
       return undefined;
     }
 
-    const range = new vscode.Range(0, 0, 0, 0);
-    const lenses: vscode.CodeLens[] = [
-      new vscode.CodeLens(range, {
-        command: BUILD_COMMAND,
-        title: 'Dalec: Build',
-        arguments: [document.uri],
-      }),
-      new vscode.CodeLens(range, {
-        command: DEBUG_COMMAND,
-        title: 'Dalec: Debug',
-        arguments: [document.uri],
-      }),
-    ];
+    // Give each lens a unique range so VS Code orders them deterministically.
+    const rangeFor = (order: number) => new vscode.Range(0, order, 0, order);
+    const lenses: vscode.CodeLens[] = [];
+    const addLens = (command: string, title: string, args?: unknown[]) => {
+      lenses.push(
+        new vscode.CodeLens(rangeFor(lenses.length), {
+          command,
+          title,
+          ...(args ? { arguments: args } : {}),
+        }),
+      );
+    };
+
+    addLens(BUILD_COMMAND, 'Dalec: Build', [document.uri]);
+    addLens(DEBUG_COMMAND, 'Dalec: Debug', [document.uri]);
 
     const last = this.lastAction.get();
     if (last && last.specUri.toString() === document.uri.toString()) {
-      lenses.push(
-        new vscode.CodeLens(range, {
-          command: 'dalec-vscode-tools.rerunLastActionDebug',
-          title: `Dalec: Debug (${last.target})`,
-        }),
-      );
-      lenses.push(
-        new vscode.CodeLens(range, {
-          command: 'dalec-vscode-tools.rerunLastActionBuild',
-          title: `Dalec: Build (${last.target})`,
-        }),
-      );
+      addLens('dalec-vscode-tools.rerunLastActionBuild', `Dalec: Build (${last.target})`);
+      addLens('dalec-vscode-tools.rerunLastActionDebug', `Dalec: Debug (${last.target})`);
     }
 
     return lenses;
