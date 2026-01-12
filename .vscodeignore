@@ -1,8 +1,5 @@
 .vscode/**
 .vscode-test/**
-out/**
-out/**/*.map
-!webview-ui/dist/assets
 src/**
 .gitignore
 .yarnrc
@@ -22,11 +19,5 @@ SECURITY.md
 docs/**
 .vscode-test.mjs
 dalec-vscode-tools-*.vsix
-tsconfig.json
-vsc-extension-quickstart.md
 tslint.json
 node_modules/**
-!node_modules/vscode/**
-!node_modules/bufferutil/**
-!node_modules/cross-spawn/**
-!node_modules/utf-8-validate/**
