@@ -1,9 +1,9 @@
 {
     "compilerOptions": {
         "module": "CommonJS",
-        "target": "es2024",
+        "target": "es2022",
         "outDir": "out",
-        "lib": ["ES2024"],
+        "lib": ["ES2022"],
         "sourceMap": true,
         "rootDir": ".", /* This is not the `src` directory because some TS files import `package.json` */
         "strict": true, /* enable all strict type-checking options */
