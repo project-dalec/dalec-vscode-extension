@@ -5,6 +5,7 @@ import { getWorkspaceRootForUri } from './pathHelpers';
 const terminalRegistry = new Map<string, vscode.Terminal>();
 let terminalCloseSubscription: vscode.Disposable | undefined;
 let terminalCloseDisposed = false;
+let terminalCleanupDisposable: vscode.Disposable | undefined;
 
 export function getTerminalCommentPrefix(): string {
   const shell = vscode.env.shell?.toLowerCase() ?? '';
@@ -58,7 +59,7 @@ export function getBuildTerminalName(target: string, specUri: vscode.Uri): strin
 }
 
 export function registerTerminalCleanup(): vscode.Disposable {
-  if (!terminalCloseSubscription || terminalCloseDisposed) {
+  if (!terminalCloseSubscription || terminalCloseDisposed || !terminalCleanupDisposable) {
     terminalCloseDisposed = false;
     terminalCloseSubscription = vscode.window.onDidCloseTerminal((terminal) => {
       for (const [name, tracked] of terminalRegistry.entries()) {
@@ -68,15 +69,17 @@ export function registerTerminalCleanup(): vscode.Disposable {
         }
       }
     });
+
+    terminalCleanupDisposable = new vscode.Disposable(() => {
+      if (terminalCloseSubscription) {
+        terminalCloseSubscription.dispose();
+        terminalCloseSubscription = undefined;
+        terminalCloseDisposed = true;
+      }
+    });
   }
 
-  return new vscode.Disposable(() => {
-    if (terminalCloseSubscription) {
-      terminalCloseSubscription.dispose();
-      terminalCloseSubscription = undefined;
-      terminalCloseDisposed = true;
-    }
-  });
+  return terminalCleanupDisposable;
 }
 
 function ensureTerminalCleanup(): void {
