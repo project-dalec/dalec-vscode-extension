@@ -106,16 +106,37 @@ export async function collectArgsSelection(
   const previousSelection = cachedValue ?? argsSelectionCache.get(key);
   const result = new Map<string, string>();
 
-  for (const [name, defaultValue] of definedArgs.entries()) {
-    const value = await vscode.window.showInputBox({
-      prompt: `Enter value for build argument "${name}"`,
-      value: previousSelection?.values.get(name) ?? defaultValue ?? '',
-      placeHolder: defaultValue ?? '',
-    });
-    if (value === undefined) {
-      return undefined;
+  // Ask if user wants to use customize or default arg values
+  const useDefaultsOption = 'Use all default values';
+  const customizeOption = 'Customize values';
+  const placeHolder = 'Build arguments configuration';
+  const selectedOption = await vscode.window.showQuickPick(
+    [useDefaultsOption, customizeOption],
+    {placeHolder}
+  );
+
+  if (selectedOption === undefined) {
+    return undefined;
+  }
+
+  if (selectedOption === useDefaultsOption) {
+    // Use all default or previous values
+    for (const [name, defaultValue] of definedArgs.entries()) {
+      result.set(name, previousSelection?.values.get(name) ?? defaultValue ?? '');
     }
-    result.set(name, value);
+  } else {
+    // Show input boxes for each argument
+    for (const [name, defaultValue] of definedArgs.entries()) {
+      const value = await vscode.window.showInputBox({
+        prompt: `Enter value for build argument "${name}"`,
+        value: previousSelection?.values.get(name) ?? defaultValue ?? '',
+        placeHolder: defaultValue ?? '',
+      });
+      if (value === undefined) {
+        return undefined;
+      }
+      result.set(name, value);
+    }
   }
 
   const selection: ArgsSelection = { values: result };
