@@ -38,18 +38,18 @@ export interface DalecResolveOptions {
 /**
  * Resolves image metadata (name, version, revision) from a Dalec YAML file
  * using the dalec.resolve command with docker buildx.
- * 
+ *
  * This function executes: docker buildx build --call dalec.resolve,format=json -< path/to/dalecfile.yaml
- * 
+ *
  * The dalec.resolve command processes the Dalec spec file and returns structured metadata
  * about the image that would be built, including the package name, version, and revision.
  * This metadata is used to construct appropriate image tags for the build.
- * 
+ *
  * @param specFilePath - Absolute path to the Dalec YAML specification file
  * @param options - Optional build settings to ensure metadata is resolved with actual build args/contexts
  * @returns Promise resolving to an object containing name, version, and revision fields.
  *          Fields may be undefined if not present in the spec or if resolution fails.
- * 
+ *
  * @example
  * const metadata = await resolveDalecImageMetadata('/path/to/dalec-spec.yaml');
  * if (metadata.name && metadata.version) {
@@ -63,13 +63,13 @@ export async function resolveDalecImageMetadata(
   try {
     // Get the directory containing the spec file to use as the working directory
     const contextPath = path.dirname(specFilePath);
-    
+
     // Retrieve the configured buildx command (defaults to 'docker buildx')
     // This allows users to customize the docker command if needed
     const buildxSetting = vscode.workspace.getConfiguration('dalec-spec').get('buildxCommand', 'docker buildx').trim();
     const parts = buildxSetting.split(/\s+/);
     const binary = parts.shift() || 'docker';
-    
+
     // Construct the command arguments for dalec.resolve
     // Use -f to specify the spec file and . as the context
     const args = [...parts, 'build', '--call', 'dalec.resolve,format=json'];
@@ -83,7 +83,7 @@ export async function resolveDalecImageMetadata(
       args.push(...buildContextArgs(options.buildContexts));
     }
     args.push('-f', specFilePath, '.');
-    
+
     // Execute the command and capture output
     const result = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
       const childProcess = spawn(binary, args, {
@@ -168,11 +168,11 @@ export async function resolveDalecImageMetadata(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     getDalecOutputChannel().appendLine(`[Dalec] Failed to resolve image metadata: ${errorMessage}`);
-    
+
     void vscode.window.showErrorMessage(
       `Failed to resolve Dalec image metadata. Please ensure your YAML file is valid and Docker is running. Error: ${errorMessage}`
     );
-    
+
     return {};
   }
 }
@@ -189,14 +189,17 @@ export function createDockerBuildxCommand(inputs: DockerCommandInputs): DockerCo
     args.push('build');
   }
   args.push('--target', inputs.target, '-f', getWorkspaceRelativeFsPath(inputs.specFile));
-  
-  // Add image tag if name and version are provided
-  if (inputs.imageName && inputs.imageTag) {
-    args.push('-t', `${inputs.imageName}:${inputs.imageTag}`);
-  } else if (inputs.imageName) {
-    args.push('-t', inputs.imageName);
+
+
+  // Add image tag if name and version are provided when target is a container build
+  if (inputs.target.endsWith('/container') || inputs.target.endsWith('/container/depsonly')) {
+    if (inputs.imageName && inputs.imageTag) {
+      args.push('-t', `${inputs.imageName}:${inputs.imageTag}`);
+    } else if (inputs.imageName) {
+      args.push('-t', inputs.imageName);
+    }
   }
-  
+
   if (inputs.buildArgs && inputs.buildArgs.size > 0) {
     args.push(...formatBuildArgs(inputs.buildArgs));
   }
@@ -278,28 +281,28 @@ export function quote(value: string): string {
 
 export function getDockerErrorMessage(error: unknown): string {
   const baseMessage = error instanceof Error ? error.message : String(error);
-  
+
   // Check for common Docker-related errors
   if (baseMessage.includes('ENOENT') || baseMessage.includes('command not found')) {
     return 'Docker is not installed or not in your PATH. Please install Docker and ensure it is accessible from the command line.';
   }
-  
+
   if (baseMessage.includes('ECONNREFUSED') || baseMessage.includes('Cannot connect to the Docker daemon')) {
     return 'Docker daemon is not running. Please start Docker Desktop or the Docker service and try again.';
   }
-  
+
   if (baseMessage.includes('permission denied')) {
     return 'Permission denied when accessing Docker. You may need to run VS Code with appropriate permissions or add your user to the docker group.';
   }
-  
+
   if (baseMessage.includes('buildx') && (baseMessage.includes('unknown') || baseMessage.includes('not found'))) {
     return 'Docker buildx is not available. Please ensure you have Docker with buildx support installed (Docker 19.03 or later).';
   }
-  
+
   if (baseMessage.includes('BUILDX_EXPERIMENTAL')) {
     return 'Docker buildx experimental features are required but not enabled. Please update your Docker installation.';
   }
-  
+
   // Generic fallback with the original error
   return `Failed to query Dalec targets: ${baseMessage}. Please ensure Docker is installed, running, and accessible.`;
 }
