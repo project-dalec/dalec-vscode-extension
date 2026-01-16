@@ -14,7 +14,9 @@ export function getTerminalCommentPrefix(): string {
   return '#';
 }
 
-export function getOrCreateTerminal(name: string, options: vscode.TerminalOptions): vscode.Terminal {
+type TerminalOptionsWithoutName = Omit<vscode.TerminalOptions, 'name'>;
+
+export function getOrCreateTerminal(name: string, options: TerminalOptionsWithoutName): vscode.Terminal {
   ensureTerminalCleanup();
 
   const cached = terminalRegistry.get(name);
@@ -32,8 +34,8 @@ export function getOrCreateTerminal(name: string, options: vscode.TerminalOption
   }
 
   const created = vscode.window.createTerminal({
-    name,
     ...options,
+    name,
   });
   terminalRegistry.set(name, created);
   return created;

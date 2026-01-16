@@ -30,10 +30,10 @@ suite('Terminal Helpers Test Suite', () => {
 
   test('getOrCreateTerminal reuses a terminal with the same name', async () => {
     const name = 'Dalec Build (reuse) - example.yaml';
-    const terminal = getOrCreateTerminal(name, { name });
+    const terminal = getOrCreateTerminal(name, {});
     createdTerminals.push(terminal);
 
-    const reused = getOrCreateTerminal(name, { name });
+    const reused = getOrCreateTerminal(name, {});
 
     assert.strictEqual(reused, terminal);
   });
@@ -43,20 +43,20 @@ suite('Terminal Helpers Test Suite', () => {
     const terminal = vscode.window.createTerminal({ name: `${baseName} (1)` });
     createdTerminals.push(terminal);
 
-    const reused = getOrCreateTerminal(baseName, { name: baseName });
+    const reused = getOrCreateTerminal(baseName, {});
 
     assert.strictEqual(reused, terminal);
   });
 
   test('getOrCreateTerminal recreates terminals after they are closed', async () => {
     const name = 'Dalec Build (cleanup) - example.yaml';
-    const terminal = getOrCreateTerminal(name, { name });
+    const terminal = getOrCreateTerminal(name, {});
     createdTerminals.push(terminal);
 
     terminal.dispose();
     await waitForTerminalClose(terminal);
 
-    const recreated = getOrCreateTerminal(name, { name });
+    const recreated = getOrCreateTerminal(name, {});
     createdTerminals.push(recreated);
 
     assert.notStrictEqual(recreated, terminal);
