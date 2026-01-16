@@ -18,12 +18,15 @@ export function getOrCreateTerminal(name: string, options: vscode.TerminalOption
   ensureTerminalCleanup();
 
   const cached = terminalRegistry.get(name);
-  if (cached && vscode.window.terminals.includes(cached)) {
+  if (cached && isTerminalReusable(cached)) {
     return cached;
+  }
+  if (cached) {
+    terminalRegistry.delete(name);
   }
 
   const existing = findTerminalByName(name);
-  if (existing) {
+  if (existing && isTerminalReusable(existing)) {
     terminalRegistry.set(name, existing);
     return existing;
   }
@@ -78,4 +81,8 @@ function findTerminalByName(name: string): vscode.Terminal | undefined {
   return vscode.window.terminals.find((terminal) =>
     terminal.name === name || terminal.name.startsWith(suffixPrefix),
   );
+}
+
+function isTerminalReusable(terminal: vscode.Terminal): boolean {
+  return vscode.window.terminals.includes(terminal) && terminal.exitStatus === undefined;
 }
