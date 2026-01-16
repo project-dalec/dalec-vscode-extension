@@ -15,13 +15,16 @@ suite('Terminal Helpers Test Suite', () => {
 
   test('getBuildTerminalName uses workspace-relative spec path when available', () => {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    assert.ok(workspaceRoot, 'Expected a workspace root for terminal helper tests.');
+    if (!workspaceRoot) {
+      assert.fail('Expected a workspace root for terminal helper tests.');
+      return;
+    }
 
-    const specPath = path.join(workspaceRoot!, 'specs', 'example.yaml');
+    const specPath = path.join(workspaceRoot, 'specs', 'example.yaml');
     const specUri = vscode.Uri.file(specPath);
     const target = 'build';
 
-    const expectedRelative = path.relative(workspaceRoot!, specPath);
+    const expectedRelative = path.relative(workspaceRoot, specPath);
     const expectedLabel = expectedRelative && expectedRelative !== '.' ? expectedRelative : path.basename(specPath);
     const expectedName = `Dalec Build (${target}) - ${expectedLabel}`;
 
