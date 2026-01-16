@@ -41,6 +41,11 @@ export function getOrCreateTerminal(name: string, options: TerminalOptionsWithou
   return created;
 }
 
+/**
+ * Builds a stable terminal name for the build target and spec path.
+ * Prefer a workspace-relative path when the spec lives under the workspace root;
+ * fall back to the basename when the spec is outside the workspace.
+ */
 export function getBuildTerminalName(target: string, specUri: vscode.Uri): string {
   const workspaceRoot = getWorkspaceRootForUri(specUri);
   const relativePath = workspaceRoot ? path.relative(workspaceRoot, specUri.fsPath) : '';
