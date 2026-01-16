@@ -5,6 +5,7 @@ import { getWorkspaceRootForUri } from './pathHelpers';
 const terminalRegistry = new Map<string, vscode.Terminal>();
 let terminalCloseSubscription: vscode.Disposable | undefined;
 let terminalCloseDisposed = false;
+let terminalCleanupDisposable: vscode.Disposable | undefined;
 
 export function getTerminalCommentPrefix(): string {
   const shell = vscode.env.shell?.toLowerCase() ?? '';
@@ -14,28 +15,38 @@ export function getTerminalCommentPrefix(): string {
   return '#';
 }
 
-export function getOrCreateTerminal(name: string, options: vscode.TerminalOptions): vscode.Terminal {
+type TerminalOptionsWithoutName = Omit<vscode.TerminalOptions, 'name'>;
+
+export function getOrCreateTerminal(name: string, options: TerminalOptionsWithoutName): vscode.Terminal {
   ensureTerminalCleanup();
 
   const cached = terminalRegistry.get(name);
-  if (cached && vscode.window.terminals.includes(cached)) {
+  if (cached && isTerminalReusable(cached)) {
     return cached;
+  }
+  if (cached) {
+    terminalRegistry.delete(name);
   }
 
   const existing = findTerminalByName(name);
-  if (existing) {
+  if (existing && isTerminalReusable(existing)) {
     terminalRegistry.set(name, existing);
     return existing;
   }
 
   const created = vscode.window.createTerminal({
-    name,
     ...options,
+    name,
   });
   terminalRegistry.set(name, created);
   return created;
 }
 
+/**
+ * Builds a stable terminal name for the build target and spec path.
+ * Prefer a workspace-relative path when the spec lives under the workspace root;
+ * fall back to the basename when the spec is outside the workspace.
+ */
 export function getBuildTerminalName(target: string, specUri: vscode.Uri): string {
   const workspaceRoot = getWorkspaceRootForUri(specUri);
   const relativePath = workspaceRoot ? path.relative(workspaceRoot, specUri.fsPath) : '';
@@ -48,7 +59,7 @@ export function getBuildTerminalName(target: string, specUri: vscode.Uri): strin
 }
 
 export function registerTerminalCleanup(): vscode.Disposable {
-  if (!terminalCloseSubscription || terminalCloseDisposed) {
+  if (!terminalCloseSubscription || terminalCloseDisposed || !terminalCleanupDisposable) {
     terminalCloseDisposed = false;
     terminalCloseSubscription = vscode.window.onDidCloseTerminal((terminal) => {
       for (const [name, tracked] of terminalRegistry.entries()) {
@@ -58,15 +69,17 @@ export function registerTerminalCleanup(): vscode.Disposable {
         }
       }
     });
+
+    terminalCleanupDisposable = new vscode.Disposable(() => {
+      if (terminalCloseSubscription) {
+        terminalCloseSubscription.dispose();
+        terminalCloseSubscription = undefined;
+        terminalCloseDisposed = true;
+      }
+    });
   }
 
-  return new vscode.Disposable(() => {
-    if (terminalCloseSubscription) {
-      terminalCloseSubscription.dispose();
-      terminalCloseSubscription = undefined;
-      terminalCloseDisposed = true;
-    }
-  });
+  return terminalCleanupDisposable;
 }
 
 function ensureTerminalCleanup(): void {
@@ -78,4 +91,8 @@ function findTerminalByName(name: string): vscode.Terminal | undefined {
   return vscode.window.terminals.find((terminal) =>
     terminal.name === name || terminal.name.startsWith(suffixPrefix),
   );
+}
+
+function isTerminalReusable(terminal: vscode.Terminal): boolean {
+  return vscode.window.terminals.includes(terminal) && terminal.exitStatus === undefined;
 }
