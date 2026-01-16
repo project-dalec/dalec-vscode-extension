@@ -42,7 +42,8 @@ suite('Terminal Helpers Test Suite', () => {
   });
 
   test('getOrCreateTerminal matches terminals with numeric suffixes', async () => {
-    const baseName = 'Dalec Build (suffix) - example.yaml';
+    const uniqueId = Date.now().toString(36);
+    const baseName = `Dalec Build (suffix-${uniqueId}) - example.yaml`;
     const terminal = vscode.window.createTerminal({ name: `${baseName} (1)` });
     createdTerminals.push(terminal);
 
