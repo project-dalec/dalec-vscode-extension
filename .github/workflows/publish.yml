@@ -7,7 +7,6 @@ permissions:
   contents: read
   security-events: none
 
-
 jobs:
   JobBuild:
     name: release
@@ -61,6 +60,8 @@ jobs:
       contents: write
       deployments: read
       packages: none
+      id-token: write
+      attestations: write
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
@@ -84,11 +85,28 @@ jobs:
         with:
           pat: ${{ secrets.VS_MARKETPLACE_TOKEN }}
           registryUrl: https://marketplace.visualstudio.com
-      - name: Create release
-        uses: softprops/action-gh-release@v2
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Sign artifacts
+        run: |
+          set -euo pipefail
+
+          cd "$(dirname "${VSIX_PATH}")"
+          sha256sum "$(basename "${VSIX_PATH}")" > "${VSIX_PATH}.sha256"
+
+          cosign sign-blob --oidc-provider=github-actions --yes --bundle "${VSIX_PATH}.sigstore.bundle" "${VSIX_PATH}"
+          cosign sign-blob --oidc-provider=github-actions --yes --bundle "${VSIX_PATH}.sha256.sigstore.bundle" "${VSIX_PATH}.sha256"
+        env:
+          VSIX_PATH: ${{ steps.create_vsix.outputs.vsixPath }}
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v3
         with:
-          body: Publish ${{ needs.JobBuild.outputs.changelog_reader_changes }}
-          name: ${{ needs.JobBuild.outputs.currentversion }}
-          tag_name: ${{ needs.JobBuild.outputs.currentversion }}
-          files: ${{ steps.create_vsix.outputs.vsixPath}}
+          subject-path: ${{ steps.create_vsix.outputs.vsixPath }}
+      - name: Create release
+        run: |
+          gh release create ${RELEASE_NAME} --notes "${RELEASE_BODY}" ${{ steps.create_vsix.outputs.vsixPath }}*
+        env:
+          RELEASE_NAME: ${{ needs.JobBuild.outputs.currentversion }}
+          RELEASE_BODY: Publish ${{ needs.JobBuild.outputs.changelog_reader_changes }}
+          GH_TOKEN: ${{ github.token }}
 
