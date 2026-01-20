@@ -7,6 +7,7 @@ permissions:
   contents: read
   security-events: none
 
+
 jobs:
   JobBuild:
     name: release
@@ -77,27 +78,17 @@ jobs:
       # Run install dependencies
       - name: Install dependencies
         run: npm install
-      - name: Create a Release
-        id: create_release
-        uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1.1.4
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ needs.JobBuild.outputs.currentversion }}
-          release_name: ${{ needs.JobBuild.outputs.currentversion }}
-          body: Publish ${{ needs.JobBuild.outputs.changelog_reader_changes }}
       - name: Create vsix and publish to marketplace
         id: create_vsix
         uses: HaaLeo/publish-vscode-extension@ca5561daa085dee804bf9f37fe0165785a9b14db # v2.0.0
         with:
           pat: ${{ secrets.VS_MARKETPLACE_TOKEN }}
           registryUrl: https://marketplace.visualstudio.com
-      - name: Attach vsix to release
-        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1.0.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create release
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.create_vsix.outputs.vsixPath}}
-          asset_name: ${{ steps.create_vsix.outputs.vsixPath}}
-          asset_content_type: application/vsix
+          body: Publish ${{ needs.JobBuild.outputs.changelog_reader_changes }}
+          name: ${{ needs.JobBuild.outputs.currentversion }}
+          tag_name: ${{ needs.JobBuild.outputs.currentversion }}
+          files: ${{ steps.create_vsix.outputs.vsixPath}}
+
