@@ -10,6 +10,8 @@ export function getWorkspaceRootForUri(uri?: vscode.Uri): string | undefined {
     if (folder) {
       return folder.uri.fsPath;
     }
+    // If the file is not part of a workspace folder, use its directory as the root
+    return path.dirname(uri.fsPath);
   }
   return workspaceRoot ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
@@ -20,6 +22,13 @@ export function getWorkspaceRootForPath(filePath: string): string | undefined {
 }
 
 export function getWorkspaceRelativeFsPath(filePath: string): string {
+  const root = getWorkspaceRootForPath(filePath);
+  if (root && filePath.startsWith(root)) {
+    // If specific file is in workspace, return path relative to workspace root
+    // e.g. /ws/foo.yaml -> foo.yaml
+    const rel = path.relative(root, filePath);
+    return rel;
+  }
   return filePath;
 }
 

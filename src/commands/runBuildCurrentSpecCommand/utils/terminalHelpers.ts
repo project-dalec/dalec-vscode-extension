@@ -6,14 +6,6 @@ const terminalRegistry = new Map<string, vscode.Terminal>();
 let terminalCloseSubscription: vscode.Disposable | undefined;
 let terminalCloseDisposed = false;
 
-export function getTerminalCommentPrefix(): string {
-  const shell = vscode.env.shell?.toLowerCase() ?? '';
-  if (shell.includes('cmd.exe')) {
-    return 'REM';
-  }
-  return '#';
-}
-
 export function getOrCreateTerminal(name: string, options: vscode.TerminalOptions): vscode.Terminal {
   ensureTerminalCleanup();
 

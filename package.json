@@ -85,6 +85,23 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "When enabled, also accept legacy/built-in directives (`ghcr.io/project-dalec/dalec/frontend:*`, `ghcr.io/azure/dalec/frontend:*`, and any image containing 'dalec'). Set to `false` to only accept directives listed in `syntaxDirectives`.\n\n**Warning:** If this is `false` and `syntaxDirectives` is empty, no Dalec specs will be recognized."
+        },
+        "dalec-spec.outputBaseDirectory": {
+          "type": "string",
+          "default": ".dalec-output",
+          "markdownDescription": "Base directory for build outputs. Target-specific subdirectories will be created within this directory (e.g., `.dalec-output/rpm/`, `.dalec-output/deb/`). This is used when output flags reference the `${baseDir}` variable."
+        },
+        "dalec-spec.defaultOutputFlags": {
+          "type": "object",
+          "default": {
+            "container": "",
+            "rpm": "type=local,dest=${baseDir}/rpm",
+            "deb": "type=local,dest=${baseDir}/deb"
+          },
+          "markdownDescription": "Default `--output` flags for different target types. The key can be a target name pattern (e.g., 'rpm', 'deb', 'container') and the value is the output flag content (without `--output`).\n\n**Variable Substitution:**\n- `${baseDir}` — Replaced with the value of `outputBaseDirectory` setting\n\n**Examples:**\n- `\"container\": \"\"` — No default output for container targets (uses `-t` for tagging)\n- `\"rpm\": \"type=local,dest=${baseDir}/rpm\"` — Outputs rpm artifacts to `.dalec-output/rpm/`\n- `\"deb\": \"type=local,dest=${baseDir}/deb\"` — Outputs deb artifacts to `.dalec-output/deb/`\n- `\"oci\": \"type=oci,dest=${baseDir}/oci\"` — Outputs OCI image to directory\n\n**Note:** When an output flag is specified, `-t` (tag) will not be automatically added. Leave empty or unset to use default tagging behavior for container images.",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
