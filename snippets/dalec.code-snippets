@@ -1,0 +1,62 @@
+{
+	"Dalec Spec Skeleton": {
+		"prefix": "dalec-spec",
+		"body": [
+			"# syntax=ghcr.io/project-dalec/dalec/frontend:latest",
+			"name: ${1:package-name}",
+			"version: ${2:0.0.1}",
+			"revision: ${3:1}",
+			"description: ${4:Description of the package}",
+			"license: ${5:MIT}",
+			"website: ${6:https://github.com/project-dalec/dalec}",
+			"",
+			"sources:",
+			"  ${7:src}:",
+			"    git:",
+			"      url: ${8:https://github.com/example/repo}",
+			"      commit: ${9:HEAD}",
+			"",
+			"build:",
+			"  steps:",
+			"    - command:",
+			"        - ${10:./build.sh}",
+			"",
+			"tests:",
+			"  - name: ${11:basic-check}",
+			"    steps:",
+			"      - command:",
+			"          - ${12:./test.sh}",
+			""
+		],
+		"description": "Scaffold a new Dalec specification file"
+	},
+	"Dalec Source (Git)": {
+		"prefix": "dalec-source-git",
+		"body": [
+			"${1:name}:",
+			"  git:",
+			"    url: ${2:url}",
+			"    commit: ${3:commit}"
+		],
+		"description": "Add a git source"
+	},
+	"Dalec Source (Docker Image)": {
+		"prefix": "dalec-source-image",
+		"body": [
+			"${1:name}:",
+			"  image:",
+			"    ref: ${2:ref}",
+			"    cmd:",
+			"      - ${3:cmd}"
+		],
+		"description": "Add a docker image source"
+	},
+	"Dalec Build Step": {
+		"prefix": "dalec-step",
+		"body": [
+			"- command:",
+			"    - ${1:command}"
+		],
+		"description": "Add a command build step"
+	}
+}

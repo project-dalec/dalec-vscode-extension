@@ -6,6 +6,7 @@ import { DalecDocumentTracker, DalecSchemaProvider } from './commands/runBuildCu
 import { DalecStatusBarManager } from './commands/runBuildCurrentSpecCommand/dalecStatusBar';
 import { registerTerminalCleanup } from './commands/runBuildCurrentSpecCommand/utils/terminalHelpers';
 import { rerunLastAction } from './commands/reRunLastAction/reRunLastAction';
+import { createNewSpec } from './commands/createNewSpec/createNewSpec';
 
 const DEBUG_TYPE = 'dalec-buildx';
 
@@ -70,6 +71,8 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('dalec-vscode-tools.rerunLastActionDebug', () =>
       rerunLastAction(tracker, lastAction, 'debug'),
     ),
+
+	vscode.commands.registerCommand('dalec-vscode-tools.createNewSpec', () => createNewSpec());
 
 	context.subscriptions.push(disposable);
 }

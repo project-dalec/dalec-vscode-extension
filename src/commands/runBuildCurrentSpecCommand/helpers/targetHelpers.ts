@@ -29,6 +29,7 @@ export async function pickTarget(
     const manual = await vscode.window.showInputBox({
       prompt: 'No targets detected in this spec. Enter a target name to use.',
       placeHolder: 'target-name',
+      ignoreFocusOut: true,
     });
     return manual?.trim() || undefined;
   }
@@ -52,6 +53,7 @@ export async function pickTarget(
 
   const scopeChoice = await vscode.window.showQuickPick(scopes, {
     placeHolder: 'Select target group',
+    ignoreFocusOut: true,
   });
   if (!scopeChoice) {
     return undefined;
@@ -68,6 +70,7 @@ export async function pickTarget(
     {
       placeHolder: placeholder,
       matchOnDetail: true,
+      ignoreFocusOut: true,
     },
   );
 

@@ -2001,17 +2001,9 @@
 					"description": "Replaces is the list of packages that are replaced by the generated package."
 				},
 				"revision": {
-					"oneOf": [
-						{
-							"type": [
-								"string"
-							]
-						},
-						{
-							"type": [
-								"integer"
-							]
-						}
+					"type": [
+						"string",
+						"integer"
 					],
 					"description": "Revision sets the package revision.\nThis will generally get merged into the package version when generating the package."
 				},

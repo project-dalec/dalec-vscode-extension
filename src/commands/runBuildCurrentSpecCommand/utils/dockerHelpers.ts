@@ -14,7 +14,6 @@ export interface DockerCommandInputs {
   context: string;
   buildArgs?: Map<string, string>;
   buildContexts?: Map<string, string>;
-  noCache?: boolean;
   imageName?: string;
   imageTag?: string;
 }
@@ -188,17 +187,26 @@ export function createDockerBuildxCommand(inputs: DockerCommandInputs): DockerCo
   } else {
     args.push('build');
   }
-  args.push('--target', inputs.target, '-f', getWorkspaceRelativeFsPath(inputs.specFile));
+  // Use absolute path for -f to align with VS Code's breakpoints source path
+  args.push('--target', inputs.target, '-f', inputs.specFile);
 
+  // Determine output behavior based on target type and configuration
+  const outputFlag = getOutputFlagForTarget(inputs.target);
+  const isContainerTarget = inputs.target === 'container' || inputs.target.endsWith('/container');
 
-  // Add image tag if name and version are provided when target is a container build
-  if (inputs.target.endsWith('/container') || inputs.target.endsWith('/container/depsonly')) {
+  if (outputFlag) {
+    // Use configured output flag (e.g., type=local,dest=./rpm-out)
+    args.push('--output', outputFlag);
+  } else if (isContainerTarget) {
+    // Only add image tag for container targets when no custom output is specified
+    // This exports the image to docker (default behavior of -t)
     if (inputs.imageName && inputs.imageTag) {
       args.push('-t', `${inputs.imageName}:${inputs.imageTag}`);
     } else if (inputs.imageName) {
       args.push('-t', inputs.imageName);
     }
   }
+  // For non-container targets without a configured output flag, let docker buildx use its default behavior
 
   if (inputs.buildArgs && inputs.buildArgs.size > 0) {
     args.push(...formatBuildArgs(inputs.buildArgs));
@@ -206,14 +214,45 @@ export function createDockerBuildxCommand(inputs: DockerCommandInputs): DockerCo
   if (inputs.buildContexts && inputs.buildContexts.size > 0) {
     args.push(...buildContextArgs(inputs.buildContexts));
   }
-  if (inputs.noCache) {
-    args.push('--no-cache');
-  }
-  const contextPathArg = isRemoteContextReference(inputs.context)
-    ? inputs.context
-    : getWorkspaceRelativeFsPath(inputs.context);
-  args.push(contextPathArg);
+  args.push(inputs.context);
   return { binary, args };
+}
+
+/**
+ * Gets the configured output flag for a given target.
+ * Checks the configuration for matching target patterns and returns the output flag.
+ * Substitutes ${baseDir} variable with the configured outputBaseDirectory.
+ * 
+ * @param target - The target name (e.g., 'rpm', 'mariner2/rpm', 'container')
+ * @returns The output flag value (without '--output' prefix) or undefined if no match
+ */
+function getOutputFlagForTarget(target: string): string | undefined {
+  const config = vscode.workspace.getConfiguration('dalec-spec');
+  const defaultOutputFlags = config.get<Record<string, string>>('defaultOutputFlags', {});
+  const baseDir = config.get<string>('outputBaseDirectory', '.dalec-output');
+
+  let flag: string | undefined;
+
+  // Check for exact match first
+  if (target in defaultOutputFlags) {
+    flag = defaultOutputFlags[target];
+  } else {
+    // Check if target ends with a known suffix (e.g., mariner2/rpm -> rpm)
+    for (const [pattern, flagValue] of Object.entries(defaultOutputFlags)) {
+      if (target === pattern || target.endsWith(`/${pattern}`)) {
+        flag = flagValue;
+        break;
+      }
+    }
+  }
+
+  if (!flag) {
+    return undefined; // Return undefined for empty strings or no match
+  }
+
+  // Substitute ${baseDir} variable with the configured base directory
+  const substituted = flag.replace(/\$\{baseDir\}/g, baseDir);
+  return substituted || undefined;
 }
 
 export function buildContextArgs(contexts: Map<string, string>): string[] {

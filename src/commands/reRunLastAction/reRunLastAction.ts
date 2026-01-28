@@ -6,7 +6,7 @@ import { getWorkspaceRootForUri } from '../runBuildCurrentSpecCommand/utils/path
 import { ArgsSelection, collectArgsSelection, collectContextSelection, ContextSelection } from '../runBuildCurrentSpecCommand/helpers/contextHelpers';
 import { createDockerBuildxCommand, logDockerCommand } from '../runBuildCurrentSpecCommand/utils/dockerHelpers';
 import { recordFromMap } from '../runBuildCurrentSpecCommand/utils/conversionHelpers';
-import { getBuildTerminalName, getOrCreateTerminal, getTerminalCommentPrefix } from '../runBuildCurrentSpecCommand/utils/terminalHelpers';
+import { getBuildTerminalName, getOrCreateTerminal } from '../runBuildCurrentSpecCommand/utils/terminalHelpers';
 
 export async function rerunLastAction(
   tracker: DalecDocumentTracker,
@@ -47,6 +47,8 @@ export async function rerunLastAction(
 
   const actionType = overrideType ?? entry.type;
 
+  void vscode.window.showInformationMessage(`Rerunning Dalec ${actionType} for "${entry.target}"...`);
+
   if (actionType === 'build') {
     const dockerCommand = createDockerBuildxCommand({
       mode: 'build',
@@ -66,7 +68,6 @@ export async function rerunLastAction(
       },
     });
     terminal.show();
-    terminal.sendText(`${getTerminalCommentPrefix()} Dalec command: ${formattedCommand}`);
     terminal.sendText(formattedCommand);
   } else if (actionType === 'debug') {
     const debugConfig: vscode.DebugConfiguration = {

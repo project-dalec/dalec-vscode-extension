@@ -6,9 +6,9 @@ import { getWorkspaceRootForUri, getWorkspaceRootForPath } from './utils/pathHel
 import { collectContextSelection, collectArgsSelection, type ContextSelection, type ArgsSelection } from './helpers/contextHelpers';
 import { pickTarget } from './helpers/targetHelpers';
 import { resolveDalecDocument, isValidDalecDoc } from './helpers/documentHelpers';
-import { rewriteSourcePathsForBreakpoints, logDapTraffic } from './helpers/dapHelpers';
+import { rewriteOutboundMessage, rewriteInboundMessage, logDapTraffic } from './helpers/dapHelpers';
 import { recordFromMap, mapFromRecord } from './utils/conversionHelpers';
-import { getBuildTerminalName, getOrCreateTerminal, getTerminalCommentPrefix } from './utils/terminalHelpers';
+import { getBuildTerminalName, getOrCreateTerminal } from './utils/terminalHelpers';
 import { getEmptyContextDir } from './helpers/contextHelpers';
 
 const BUILD_COMMAND = 'dalec-vscode-tools.buildCurrentSpec';
@@ -44,6 +44,9 @@ export async function runBuildCommand(
   if (!document) {
     return;
   }
+  if (document.isDirty) {
+    await document.save();
+  }
 
   const target = await pickTarget(document, tracker, 'Select a Dalec target to build');
   if (!target) {
@@ -59,6 +62,8 @@ export async function runBuildCommand(
   if (!argsSelection) {
     return;
   }
+
+  void vscode.window.showInformationMessage(`Starting Dalec build for "${target}"...`);
 
   const resolvedMetadata = await resolveDalecImageMetadata(document.uri.fsPath, {
     target,
@@ -95,7 +100,6 @@ export async function runBuildCommand(
   });
 
   terminal.show();
-  terminal.sendText(`${getTerminalCommentPrefix()} Dalec command: ${formattedCommand}`);
   terminal.sendText(formattedCommand);
 
   lastAction.record({
@@ -117,6 +121,9 @@ export async function runDebugCommand(
   if (!document) {
     return;
   }
+  if (document.isDirty) {
+    await document.save();
+  }
 
   const target = await pickTarget(document, tracker, 'Select a Dalec target to debug');
   if (!target) {
@@ -132,6 +139,8 @@ export async function runDebugCommand(
   if (!argsSelection) {
     return;
   }
+
+  void vscode.window.showInformationMessage(`Starting Dalec debug for "${target}"...`);
 
   const debugConfig: vscode.DebugConfiguration = {
     type: 'dalec-buildx',
@@ -272,6 +281,26 @@ export class DalecDebugConfigurationProvider implements vscode.DebugConfiguratio
       config.buildContexts = resolved;
     }
 
+    // Resolve name and tag for the debug image so it is not anonymous
+    try {
+      const metadata = await resolveDalecImageMetadata(config.specFile, {
+        target: config.target,
+        buildArgs: mapFromRecord(config.buildArgs),
+        buildContexts: mapFromRecord(config.buildContexts as Record<string, string> | undefined),
+      });
+
+      if (metadata.name) {
+        config.imageName = metadata.name;
+        if (metadata.version && metadata.revision) {
+          config.imageTag = `${metadata.version}-${metadata.revision}`;
+        } else if (metadata.version) {
+          config.imageTag = metadata.version;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to resolve image metadata for debug session:', e);
+    }
+
     return config;
   }
 
@@ -298,6 +327,9 @@ export class DalecDebugAdapterDescriptorFactory implements vscode.DebugAdapterDe
     session: vscode.DebugSession,
   ): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
     const config = session.configuration as DalecDebugConfiguration;
+    const cwd = config.cwd ?? config.workspaceFolder ?? getWorkspaceRootForPath(config.specFile) ?? process.cwd();
+    // Use absolute path for the spec file when running DAP, to align with VS Code's breakpoints
+    
     const dockerCommand = createDockerBuildxCommand({
       mode: 'dap',
       target: config.target,
@@ -305,12 +337,13 @@ export class DalecDebugAdapterDescriptorFactory implements vscode.DebugAdapterDe
       context: config.context,
       buildArgs: mapFromRecord(config.buildArgs),
       buildContexts: mapFromRecord(config.buildContexts),
-      noCache: false,
+      imageName: config.imageName,
+      imageTag: config.imageTag,
     });
     logDockerCommand('Debug command', dockerCommand, { toDebugConsole: true });
 
     const options: vscode.DebugAdapterExecutableOptions = {
-      cwd: config.cwd ?? config.workspaceFolder ?? getWorkspaceRootForPath(config.specFile) ?? process.cwd(),
+      cwd,
       env: {
         ...process.env,
         BUILDX_EXPERIMENTAL: '1',
@@ -322,13 +355,21 @@ export class DalecDebugAdapterDescriptorFactory implements vscode.DebugAdapterDe
 }
 
 export class DalecDebugAdapterTrackerFactory implements vscode.DebugAdapterTrackerFactory {
-  createDebugAdapterTracker(_session: vscode.DebugSession): vscode.DebugAdapterTracker {
+  createDebugAdapterTracker(session: vscode.DebugSession): vscode.DebugAdapterTracker {
+    const config = session.configuration as DalecDebugConfiguration;
+    const cwd = config.cwd ?? config.workspaceFolder ?? getWorkspaceRootForPath(config.specFile) ?? process.cwd();
+    const absoluteSpecFile = config.specFile;
+    const relativeSpecFile = path.relative(cwd, absoluteSpecFile);
+
     return {
       onWillReceiveMessage: (message) => {
-        rewriteSourcePathsForBreakpoints(message);
+        rewriteOutboundMessage(message, absoluteSpecFile, relativeSpecFile);
         logDapTraffic('client->server', message);
       },
-      onDidSendMessage: (message) => logDapTraffic('server->client', message),
+      onDidSendMessage: (message) => {
+        rewriteInboundMessage(message, absoluteSpecFile, relativeSpecFile);
+        logDapTraffic('server->client', message);
+      },
       onError: (error) => logDapTraffic('error', error),
       onExit: (code, signal) => logDapTraffic('exit', { code, signal }),
     };
@@ -342,4 +383,6 @@ interface DalecDebugConfiguration extends vscode.DebugConfiguration {
   buildArgs?: Record<string, string>;
   buildContexts?: Record<string, string>;
   dalecContextResolved?: boolean;
+  imageName?: string;
+  imageTag?: string;
 }

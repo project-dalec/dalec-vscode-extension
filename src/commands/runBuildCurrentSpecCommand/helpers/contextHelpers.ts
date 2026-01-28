@@ -51,6 +51,7 @@ export async function collectContextSelection(
     const value = await vscode.window.showInputBox({
       prompt: `Enter path for ${promptLabel}`,
       value: defaultValue,
+      ignoreFocusOut: true,
     });
     if (value === undefined) {
       return undefined;
@@ -112,7 +113,7 @@ export async function collectArgsSelection(
   const placeHolder = 'Build arguments configuration';
   const selectedOption = await vscode.window.showQuickPick(
     [useDefaultsOption, customizeOption],
-    {placeHolder}
+    {placeHolder, ignoreFocusOut: true}
   );
 
   if (selectedOption === undefined) {
@@ -131,6 +132,7 @@ export async function collectArgsSelection(
         prompt: `Enter value for build argument "${name}"`,
         value: previousSelection?.values.get(name) ?? defaultValue ?? '',
         placeHolder: defaultValue ?? '',
+        ignoreFocusOut: true,
       });
       if (value === undefined) {
         return undefined;
