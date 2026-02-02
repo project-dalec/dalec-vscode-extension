@@ -2,7 +2,7 @@
   "name": "dalec-vscode-tools",
   "displayName": "DALEC VSCode Tools",
   "description": "dalec vscode extension for developers",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "ms-kubernetes-tools",
   "icon": "resources/dalec.png",
   "engines": {
