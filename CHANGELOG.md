@@ -4,6 +4,14 @@ All notable changes to the "dalec-vscode-tools" extension will be documented in 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.3]
+
+- Dependabots updates.
+- UX improvements and quick dalec spec generation (#62)
+- Pin actions for the workflow #59
+
+Thank you so much @DannyBrito, @ashu8912, @cpuguy83, @Tatsinnit for reviews, collaborations, contributions and updates.
+
 ## [0.0.2]
 
 - Dependabots updates.
