@@ -38,6 +38,10 @@
         "title": "Dalec: Debug Current Spec"
       },
       {
+        "command": "dalec-vscode-tools.buildSpecificTarget",
+        "title": "Dalec: Build Specific Target"
+      },
+      {
         "command": "dalec-vscode-tools.rerunLastAction",
         "title": "Dalec: Rerun Last Action"
       },
@@ -185,7 +189,7 @@
     "eslint": "^10.0.0",
     "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.55.0",
+    "typescript-eslint": "^8.56.0",
     "webpack": "^5.105.0",
     "webpack-cli": "^6.0.1"
   },
