@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { DalecDocumentTracker } from './dalecDocumentTracker';
+import { DalecDocumentTracker, findTargetLineNumbers } from './dalecDocumentTracker';
 import { createDockerBuildxCommand, logDockerCommand, resolveDalecImageMetadata } from './utils/dockerHelpers';
 import { getWorkspaceRootForUri, getWorkspaceRootForPath } from './utils/pathHelpers';
 import { collectContextSelection, collectArgsSelection, type ContextSelection, type ArgsSelection } from './helpers/contextHelpers';
-import { pickTarget } from './helpers/targetHelpers';
+import { pickTarget, pickTargetForScope } from './helpers/targetHelpers';
 import { resolveDalecDocument, isValidDalecDoc } from './helpers/documentHelpers';
 import { rewriteOutboundMessage, rewriteInboundMessage, logDapTraffic } from './helpers/dapHelpers';
 import { recordFromMap, mapFromRecord } from './utils/conversionHelpers';
@@ -13,6 +13,7 @@ import { getEmptyContextDir } from './helpers/contextHelpers';
 
 const BUILD_COMMAND = 'dalec-vscode-tools.buildCurrentSpec';
 const DEBUG_COMMAND = 'dalec-vscode-tools.debugCurrentSpec';
+const BUILD_TARGET_COMMAND = 'dalec-vscode-tools.buildSpecificTarget';
 
 interface LastDalecAction {
   type: 'build' | 'debug';
@@ -34,25 +35,12 @@ export class LastDalecActionState {
   }
 }
 
-export async function runBuildCommand(
-  uri: vscode.Uri | undefined,
+async function executeBuildForTarget(
+  document: vscode.TextDocument,
+  target: string,
   tracker: DalecDocumentTracker,
   lastAction: LastDalecActionState,
 ) {
-  await isValidDalecDoc(tracker);
-  const document = await resolveDalecDocument(uri, tracker);
-  if (!document) {
-    return;
-  }
-  if (document.isDirty) {
-    await document.save();
-  }
-
-  const target = await pickTarget(document, tracker, 'Select a Dalec target to build');
-  if (!target) {
-    return;
-  }
-
   const contextSelection = await collectContextSelection(document, tracker);
   if (!contextSelection) {
     return;
@@ -109,6 +97,52 @@ export async function runBuildCommand(
     contexts: contextSelection,
     args: argsSelection,
   });
+}
+
+export async function runBuildCommand(
+  uri: vscode.Uri | undefined,
+  tracker: DalecDocumentTracker,
+  lastAction: LastDalecActionState,
+) {
+  await isValidDalecDoc(tracker);
+  const document = await resolveDalecDocument(uri, tracker);
+  if (!document) {
+    return;
+  }
+  if (document.isDirty) {
+    await document.save();
+  }
+
+  const target = await pickTarget(document, tracker, 'Select a Dalec target to build');
+  if (!target) {
+    return;
+  }
+
+  await executeBuildForTarget(document, target, tracker, lastAction);
+}
+
+export async function runBuildCommandForTarget(
+  uri: vscode.Uri | undefined,
+  scopeName: string,
+  tracker: DalecDocumentTracker,
+  lastAction: LastDalecActionState,
+) {
+  await isValidDalecDoc(tracker);
+  const document = await resolveDalecDocument(uri, tracker);
+  if (!document) {
+    return;
+  }
+  if (document.isDirty) {
+    await document.save();
+  }
+
+  // Pick the specific target for this scope (e.g., mariner2/rpm, mariner2/container)
+  const target = await pickTargetForScope(document, tracker, scopeName, `Select build target for ${scopeName}`);
+  if (!target) {
+    return;
+  }
+
+  await executeBuildForTarget(document, target, tracker, lastAction);
 }
 
 export async function runDebugCommand(
@@ -180,12 +214,28 @@ export class DalecCodeLensProvider implements vscode.CodeLensProvider, vscode.Di
       return undefined;
     }
 
-    // Give each lens a unique range so VS Code orders them deterministically.
-    const rangeFor = (order: number) => new vscode.Range(0, order, 0, order);
     const lenses: vscode.CodeLens[] = [];
+
+    // Add lenses for each target in the spec
+    const targetLineNumbers = findTargetLineNumbers(document);
+    for (const [targetName, lineNumber] of targetLineNumbers) {
+      const range = new vscode.Range(lineNumber, 0, lineNumber, 0);
+
+      // Build button for this specific target scope
+      lenses.push(
+        new vscode.CodeLens(range, {
+          command: BUILD_TARGET_COMMAND,
+          title: `▶ Build`,
+          arguments: [document.uri, targetName],
+        }),
+      );
+    }
+
+    // Add general build/debug lenses at the top
+    const rangeFor = (order: number) => new vscode.Range(0, order, 0, order);
     const addLens = (command: string, title: string, args?: unknown[]) => {
       lenses.push(
-        new vscode.CodeLens(rangeFor(lenses.length), {
+        new vscode.CodeLens(rangeFor(lenses.length + 1000), {
           command,
           title,
           ...(args ? { arguments: args } : {}),
@@ -329,7 +379,7 @@ export class DalecDebugAdapterDescriptorFactory implements vscode.DebugAdapterDe
     const config = session.configuration as DalecDebugConfiguration;
     const cwd = config.cwd ?? config.workspaceFolder ?? getWorkspaceRootForPath(config.specFile) ?? process.cwd();
     // Use absolute path for the spec file when running DAP, to align with VS Code's breakpoints
-    
+
     const dockerCommand = createDockerBuildxCommand({
       mode: 'dap',
       target: config.target,

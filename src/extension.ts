@@ -1,7 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { DalecCodeLensProvider, DalecDebugAdapterDescriptorFactory, DalecDebugAdapterTrackerFactory, DalecDebugConfigurationProvider, LastDalecActionState, runBuildCommand, runDebugCommand } from './commands/runBuildCurrentSpecCommand/runBuildCommand';
+import { DalecCodeLensProvider, DalecDebugAdapterDescriptorFactory, DalecDebugAdapterTrackerFactory, DalecDebugConfigurationProvider, LastDalecActionState, runBuildCommand, runDebugCommand, runBuildCommandForTarget } from './commands/runBuildCurrentSpecCommand/runBuildCommand';
 import { DalecDocumentTracker, DalecSchemaProvider } from './commands/runBuildCurrentSpecCommand/dalecDocumentTracker';
 import { DalecStatusBarManager } from './commands/runBuildCurrentSpecCommand/dalecStatusBar';
 import { registerTerminalCleanup } from './commands/runBuildCurrentSpecCommand/utils/terminalHelpers';
@@ -62,6 +62,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	vscode.commands.registerCommand('dalec-vscode-tools.debugCurrentSpec', (uri?: vscode.Uri) =>
       runDebugCommand(uri, tracker, lastAction),
+    );
+
+	vscode.commands.registerCommand('dalec-vscode-tools.buildSpecificTarget', (uri?: vscode.Uri, target?: string) =>
+      runBuildCommandForTarget(uri, target!, tracker, lastAction),
     );
 
 	vscode.commands.registerCommand('dalec-vscode-tools.rerunLastAction', () => rerunLastAction(tracker, lastAction)),
