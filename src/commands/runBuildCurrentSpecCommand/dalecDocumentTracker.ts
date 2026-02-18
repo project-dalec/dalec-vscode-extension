@@ -293,6 +293,94 @@ function extractTargetsFromSpec(spec: DalecSpecDocument): string[] {
   return Object.keys(rawTargets);
 }
 
+/**
+ * Finds the line number where each target is defined in the document.
+ * Returns a map of target name to line number (0-indexed).
+ */
+export function findTargetLineNumbers(document: vscode.TextDocument): Map<string, number> {
+  const result = new Map<string, number>();
+  const text = document.getText();
+  
+  // Parse YAML with line/column information
+  let needsRegexFallback = false;
+  try {
+    const parsed = YAML.parseDocument(text);
+
+    // YAML.parseDocument() records syntax issues on parsed.errors rather than throwing.
+    // Treat documents with parse errors as failed so we fall back to the regex scan.
+    if (parsed.errors.length > 0) {
+      needsRegexFallback = true;
+    } else {
+      const targetsNode = parsed.get('targets');
+
+      if (targetsNode && YAML.isMap(targetsNode)) {
+        for (const item of targetsNode.items) {
+          if (YAML.isScalar(item.key)) {
+            const targetName = String(item.key.value);
+            const range = item.key.range;
+            if (range && range[0] !== undefined) {
+              // Convert character offset to line number
+              const line = document.positionAt(range[0]).line;
+              result.set(targetName, line);
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    needsRegexFallback = true;
+  }
+
+  if (needsRegexFallback) {
+    // If YAML parsing fails, fall back to regex-based search
+    const lines = text.split(/\r?\n/);
+    let inTargetsSection = false;
+    let baseIndent = 0;
+    let targetIndent: number | undefined;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      
+      // Skip blank lines
+      if (trimmed === '') {
+        continue;
+      }
+      
+      // Check if we're entering the targets section
+      if (trimmed === 'targets:') {
+        inTargetsSection = true;
+        baseIndent = line.search(/\S/);
+        continue;
+      }
+      
+      if (inTargetsSection) {
+        const indent = line.search(/\S/);
+        
+        // Exit targets section if we hit another top-level key
+        if (indent >= 0 && indent <= baseIndent && trimmed.endsWith(':') && trimmed !== 'targets:') {
+          break;
+        }
+        
+        // Detect the indent level of the first target key
+        if (targetIndent === undefined && indent > baseIndent && trimmed.match(/^[a-zA-Z0-9_-]+:/)) {
+          targetIndent = indent;
+        }
+        
+        // Match target keys only at the exact target indent level
+        if (targetIndent !== undefined && indent === targetIndent && trimmed.match(/^[a-zA-Z0-9_-]+:/)) {
+          const match = trimmed.match(/^([a-zA-Z0-9_-]+):/);
+          if (match) {
+            result.set(match[1], i);
+          }
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
 function extractContextNamesFromSpec(spec: DalecSpecDocument): string[] {
   const contexts = new Set<string>();
   collectContextNames(spec, contexts);
