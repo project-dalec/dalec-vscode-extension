@@ -77,6 +77,56 @@ export async function pickTarget(
   return targetChoice?.target;
 }
 
+export async function pickTargetForScope(
+  document: vscode.TextDocument,
+  tracker: DalecDocumentTracker,
+  scopeName: string,
+  placeholder: string,
+): Promise<string | undefined> {
+  const targets = await getTargetsForDocument(document, tracker);
+
+  if (targets.length === 0) {
+    const manual = await vscode.window.showInputBox({
+      prompt: 'No targets detected in this spec. Enter a target name to use.',
+      placeHolder: 'target-name',
+      ignoreFocusOut: true,
+    });
+    return manual?.trim() || undefined;
+  }
+
+  // Filter targets for the specified scope
+  const scopeTargets = targets.filter((targetInfo) => {
+    const targetScope = targetInfo.name.split('/')[0];
+    // Only include targets with a subtype (e.g., "azlinux3/rpm", not just "azlinux3")
+    return targetScope === scopeName && targetInfo.name.includes('/');
+  });
+
+  if (scopeTargets.length === 0) {
+    void vscode.window.showWarningMessage(`No build targets found for "${scopeName}". The target may not be supported by the frontend.`);
+    return undefined;
+  }
+
+  if (scopeTargets.length === 1) {
+    return scopeTargets[0].name;
+  }
+
+  scopeTargets.sort((a, b) => a.name.localeCompare(b.name));
+  const targetChoice = await vscode.window.showQuickPick(
+    scopeTargets.map((targetInfo) => ({
+      label: targetInfo.name.slice(targetInfo.name.indexOf('/') + 1) || targetInfo.name,
+      detail: targetInfo.description,
+      target: targetInfo.name,
+    })),
+    {
+      placeHolder: placeholder,
+      matchOnDetail: true,
+      ignoreFocusOut: true,
+    },
+  );
+
+  return targetChoice?.target;
+}
+
 export async function getTargetsForDocument(
   document: vscode.TextDocument,
   tracker: DalecDocumentTracker,
@@ -112,7 +162,7 @@ export async function getFrontendTargets(document: vscode.TextDocument): Promise
     async () => {
       const contextPath = getSpecWorkspacePath(document);
       const args = ['buildx', 'build', '--call', 'targets', '-f', document.uri.fsPath, contextPath];
-      
+
       const shellResult = await execFile('docker', args, {
         cwd: contextPath,
         env: {
