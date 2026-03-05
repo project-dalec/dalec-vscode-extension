@@ -98,6 +98,23 @@ jobs:
           cosign sign-blob --oidc-provider=github-actions --yes --bundle "${VSIX_PATH}.sha256.sigstore.bundle" "${VSIX_PATH}.sha256"
         env:
           VSIX_PATH: ${{ steps.create_vsix.outputs.vsixPath }}
+      - name: Verify VSIX signature
+        run: |
+          set -euo pipefail
+
+          cosign verify-blob \
+            --bundle "${VSIX_PATH}.sigstore.bundle" \
+            --certificate-identity-regexp "https://github.com/${{ github.repository }}/" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${VSIX_PATH}"
+
+          cosign verify-blob \
+            --bundle "${VSIX_PATH}.sha256.sigstore.bundle" \
+            --certificate-identity-regexp "https://github.com/${{ github.repository }}/" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${VSIX_PATH}.sha256"
+        env:
+          VSIX_PATH: ${{ steps.create_vsix.outputs.vsixPath }}
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
