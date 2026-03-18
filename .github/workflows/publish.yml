@@ -36,7 +36,7 @@ jobs:
           node-version: 20
       # Run install dependencies
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       # Ensure project builds successfully before creating release
       - name: Build
         run: npm run compile
@@ -78,52 +78,117 @@ jobs:
           node-version: 20
       # Run install dependencies
       - name: Install dependencies
-        run: npm install
-      - name: Create vsix and publish to marketplace
-        id: create_vsix
-        uses: HaaLeo/publish-vscode-extension@ca5561daa085dee804bf9f37fe0165785a9b14db # v2.0.0
-        with:
-          pat: ${{ secrets.VS_MARKETPLACE_TOKEN }}
-          registryUrl: https://marketplace.visualstudio.com
+        run: npm ci
+
+      # ------------------------
+      # Package VSIX (without publishing)
+      # ------------------------
+      - name: Package VSIX
+        run: npx vsce package
+
+      - name: Get VSIX filename
+        id: vsix
+        run: |
+          VSIX_FILE="dalec-vscode-tools-${{ needs.JobBuild.outputs.currentversion }}.vsix"
+          if [ ! -f "${VSIX_FILE}" ]; then
+            echo "::error::Expected ${VSIX_FILE} not found"
+            exit 1
+          fi
+          echo "VSIX_FILE=${VSIX_FILE}" >> $GITHUB_OUTPUT
+          echo "VSIX_PATH=$(realpath "${VSIX_FILE}")" >> $GITHUB_OUTPUT
+
+      # ------------------------
+      # Install Cosign
+      # ------------------------
       - name: Install cosign
-        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
-      - name: Sign artifacts
-        run: |
-          set -euo pipefail
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
-          cd "$(dirname "${VSIX_PATH}")"
-          sha256sum "$(basename "${VSIX_PATH}")" > "${VSIX_PATH}.sha256"
-
-          cosign sign-blob --oidc-provider=github-actions --yes --bundle "${VSIX_PATH}.sigstore.bundle" "${VSIX_PATH}"
-          cosign sign-blob --oidc-provider=github-actions --yes --bundle "${VSIX_PATH}.sha256.sigstore.bundle" "${VSIX_PATH}.sha256"
+      # ------------------------
+      # Sign VSIX (OIDC Keyless)
+      # ------------------------
+      - name: Sign VSIX
         env:
-          VSIX_PATH: ${{ steps.create_vsix.outputs.vsixPath }}
+          VSIX_FILE: ${{ steps.vsix.outputs.VSIX_FILE }}
+        run: |
+          cosign sign-blob \
+            --yes \
+            --bundle "${VSIX_FILE}.bundle" \
+            "${VSIX_FILE}"
+
+      # ------------------------
+      # Verify Signature Before Release
+      # ------------------------
       - name: Verify VSIX signature
-        run: |
-          set -euo pipefail
-
-          cosign verify-blob \
-            --bundle "${VSIX_PATH}.sigstore.bundle" \
-            --certificate-identity-regexp "https://github.com/${{ github.repository }}/" \
-            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            "${VSIX_PATH}"
-
-          cosign verify-blob \
-            --bundle "${VSIX_PATH}.sha256.sigstore.bundle" \
-            --certificate-identity-regexp "https://github.com/${{ github.repository }}/" \
-            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            "${VSIX_PATH}.sha256"
         env:
-          VSIX_PATH: ${{ steps.create_vsix.outputs.vsixPath }}
+          VSIX_FILE: ${{ steps.vsix.outputs.VSIX_FILE }}
+        run: |
+          cosign verify-blob \
+            --bundle "${VSIX_FILE}.bundle" \
+            --certificate-identity-regexp "https://github.com/${{ github.repository }}/" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${VSIX_FILE}"
+
+      # ------------------------
+      # Generate Artifact Attestation
+      # ------------------------
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
-          subject-path: ${{ steps.create_vsix.outputs.vsixPath }}
-      - name: Create release
-        run: |
-          gh release create ${RELEASE_NAME} --notes "${RELEASE_BODY}" ${{ steps.create_vsix.outputs.vsixPath }}*
+          subject-path: ${{ steps.vsix.outputs.VSIX_PATH }}
+
+      # ------------------------
+      # Generate and Sign VSIX Manifest for Marketplace
+      # ------------------------
+      - name: Generate VSIX manifest
         env:
-          RELEASE_NAME: ${{ needs.JobBuild.outputs.currentversion }}
-          RELEASE_BODY: Publish ${{ needs.JobBuild.outputs.changelog_reader_changes }}
-          GH_TOKEN: ${{ github.token }}
+          VSIX_FILE: ${{ steps.vsix.outputs.VSIX_FILE }}
+        run: npx vsce generate-manifest --packagePath "$VSIX_FILE" --out extension.manifest
+
+      - name: Sign VSIX manifest
+        run: |
+          cosign sign-blob \
+            --yes \
+            --output-signature extension.signature \
+            --output-certificate extension.certificate.pem \
+            extension.manifest
+
+      # ------------------------
+      # Publish to Marketplace (after signing & verification)
+      # ------------------------
+      - name: Publish to VS Code Marketplace
+        env:
+          VS_MARKETPLACE_TOKEN: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+          VSIX_FILE: ${{ steps.vsix.outputs.VSIX_FILE }}
+        run: |
+          npx vsce publish \
+            --pat "$VS_MARKETPLACE_TOKEN" \
+            --packagePath "$VSIX_FILE" \
+            --manifestPath extension.manifest \
+            --signaturePath extension.signature
+
+      # ------------------------
+      # Create GitHub Release (Version Tag)
+      # Only after successful marketplace publish to avoid orphaned releases
+      # ------------------------
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+        with:
+          tag_name: v${{ needs.JobBuild.outputs.currentversion }}
+          name: v${{ needs.JobBuild.outputs.currentversion }}
+          body: ${{ needs.JobBuild.outputs.changelog_reader_changes }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ------------------------
+      # Upload Signed Artifact to Release
+      # ------------------------
+      - name: Upload VSIX to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VSIX_FILE: ${{ steps.vsix.outputs.VSIX_FILE }}
+          RELEASE_TAG: v${{ needs.JobBuild.outputs.currentversion }}
+        run: |
+          gh release upload \
+            "${RELEASE_TAG}" \
+            "${VSIX_FILE}" \
+            "${VSIX_FILE}.bundle"
 
