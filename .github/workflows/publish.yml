@@ -84,7 +84,7 @@ jobs:
       # Package VSIX (without publishing)
       # ------------------------
       - name: Package VSIX
-        run: npx vsce package
+        run: npx @vscode/vsce package
 
       - name: Get VSIX filename
         id: vsix
@@ -94,8 +94,10 @@ jobs:
             echo "::error::Expected ${VSIX_FILE} not found"
             exit 1
           fi
+          VSIX_PATH=$(realpath "${VSIX_FILE}")
           echo "VSIX_FILE=${VSIX_FILE}" >> $GITHUB_OUTPUT
-          echo "VSIX_PATH=$(realpath "${VSIX_FILE}")" >> $GITHUB_OUTPUT
+          echo "VSIX_PATH=${VSIX_PATH}" >> $GITHUB_OUTPUT
+          echo "::notice::VSIX path: ${VSIX_PATH}"
 
       # ------------------------
       # Install Cosign
@@ -142,7 +144,7 @@ jobs:
       - name: Generate VSIX manifest
         env:
           VSIX_FILE: ${{ steps.vsix.outputs.VSIX_FILE }}
-        run: npx vsce generate-manifest --packagePath "$VSIX_FILE" --out extension.manifest
+        run: npx @vscode/vsce generate-manifest -i "$VSIX_FILE" -o extension.manifest
 
       - name: Sign VSIX manifest
         run: |
@@ -160,7 +162,7 @@ jobs:
           VS_MARKETPLACE_TOKEN: ${{ secrets.VS_MARKETPLACE_TOKEN }}
           VSIX_FILE: ${{ steps.vsix.outputs.VSIX_FILE }}
         run: |
-          npx vsce publish \
+          npx @vscode/vsce publish \
             --pat "$VS_MARKETPLACE_TOKEN" \
             --packagePath "$VSIX_FILE" \
             --manifestPath extension.manifest \
