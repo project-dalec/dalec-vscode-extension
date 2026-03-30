@@ -4,6 +4,12 @@ All notable changes to the "dalec-vscode-tools" extension will be documented in 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.4]
+
+- Inline target build codelens.
+- Notification if on an older version of dalec frontend.
+- Fetch dalec schema from dalec frontend.
+
 ## [0.0.3]
 
 - Dependabots updates.
