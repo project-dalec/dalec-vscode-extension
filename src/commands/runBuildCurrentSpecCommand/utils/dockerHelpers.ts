@@ -249,6 +249,9 @@ export async function fetchDalecJsonSchema(syntaxImage: string): Promise<string 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     getDalecOutputChannel().appendLine(`[Dalec] Failed to fetch JSON schema via dalec.schema subrequest: ${errorMessage}`);
+    if (errorMessage.includes('unsupported subrequest')) {
+      notifyUnsupportedFrontend(syntaxImage);
+    }
     return undefined;
   }
 }
@@ -418,8 +421,35 @@ export function getDockerErrorMessage(error: unknown): string {
     return 'Docker buildx experimental features are required but not enabled. Please update your Docker installation.';
   }
 
+  if (baseMessage.includes('unsupported subrequest')) {
+    return 'This Dalec frontend does not support target discovery. You can enter a target name manually, or upgrade to a dalec version >0.19.0 for full support.';
+  }
+
   // Generic fallback with the original error
   return `Failed to query Dalec targets: ${baseMessage}. Please ensure Docker is installed, running, and accessible.`;
+}
+
+let hasNotifiedUnsupportedFrontend = false;
+
+/**
+ * Shows a one-time informational message when the Dalec frontend image
+ * does not support newer subrequests (schema, targets).
+ */
+function notifyUnsupportedFrontend(syntaxImage: string): void {
+  if (hasNotifiedUnsupportedFrontend) {
+    return;
+  }
+  hasNotifiedUnsupportedFrontend = true;
+  void vscode.window.showInformationMessage(
+    `The Dalec frontend "${syntaxImage}" does not support some features ` +
+    `(e.g., schema validation, target discovery). Consider upgrading to a dalec version >0.19.0 ` +
+    `for the best experience. The extension will continue to work with reduced functionality.`,
+    'View Output',
+  ).then((selection) => {
+    if (selection === 'View Output') {
+      getDalecOutputChannel().show();
+    }
+  });
 }
 
 export function getDalecOutputChannel(): vscode.OutputChannel {
