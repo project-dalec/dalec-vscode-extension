@@ -151,6 +151,8 @@ jobs:
         run: |
           cosign sign-blob \
             --yes \
+            --use-signing-config \
+            --bundle extension.manifest.bundle \
             --output-signature extension.signature \
             --output-certificate extension.certificate.pem \
             extension.manifest
