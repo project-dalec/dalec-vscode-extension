@@ -11,6 +11,7 @@ VS Code extension for authoring and debugging Dalec specs.
 - ✨ Schema-powered completions, hover, and validation via Red Hat YAML extension
 - 🐛 BuildKit debugging support with `dalec-buildx` debug type
 - ▶️ CodeLens actions for quick "Debug" and "Build" commands
+- 🎯 Inline "Build" CodeLens next to each target definition in your spec
 - 🎯 Queries available targets from the Dalec frontend via `docker buildx build --call targets`
 - 📁 Smart context handling—only prompts when specs reference build contexts
 
@@ -28,6 +29,7 @@ All commands are available via the Command Palette (`Cmd/Ctrl + Shift + P`):
 | Command | Description |
 |---------|-------------|
 | `Dalec: Build Current Spec` | Builds the currently opened Dalec spec using `docker buildx build` |
+| `Dalec: Build Specific Target` | Builds a specific target scope directly from an inline CodeLens or the Command Palette |
 | `Dalec: Debug Current Spec` | Launches a BuildKit debug session for the current spec |
 | `Dalec: Rerun Last Action` | Re-executes the last build or debug action with the same parameters |
 
@@ -60,6 +62,26 @@ Builds the currently opened Dalec spec using `docker buildx build`.
 **Output**
 - Build runs in the integrated terminal
 - Errors and logs appear in terminal output
+
+---
+
+### Dalec: Build Specific Target
+
+Builds a specific target scope directly from where it's defined in your spec.
+
+![Inline Target Build](assets/inline-target-build.png)
+
+**How it works**
+- The extension parses your Dalec spec and places an inline **"▶ Build"** CodeLens next to each target definition (e.g., `mariner2:`, `jammy:`).
+- Clicking this CodeLens triggers a build scoped to that target. If the scope has multiple sub-targets (e.g., `mariner2/rpm`, `mariner2/container`), you'll be prompted to pick the specific one.
+- If a scope has only one sub-target, the build starts immediately with no prompt.
+
+**How to use**
+1. Open a Dalec spec file
+2. Click the **"▶ Build"** CodeLens that appears next to a target definition
+3. If multiple sub-targets exist for that scope, select one from the quick picker
+
+This command is also available via the Command Palette (`Dalec: Build Specific Target`), where it falls back to the general target picker if no scope context is provided.
 
 ---
 
