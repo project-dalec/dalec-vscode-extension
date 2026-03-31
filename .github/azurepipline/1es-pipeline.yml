@@ -195,12 +195,12 @@ extends:
                   script: |
                     set -e
                     echo "Checking VSCE version..."
-                    npx vsce --version
+                    npx @vscode/vsce@3.7.1 --version
 
                     echo "Listing VSCE packages..."
-                    npx vsce ls
+                    npx @vscode/vsce@3.7.1 ls
                     echo "Showing VSCE extension info..."
-                    npx vsce show ms-kubernetes-tools.dalec-vscode-tools
+                    npx @vscode/vsce@3.7.1 show ms-kubernetes-tools.dalec-vscode-tools
 
                     echo "Finding VSIX..."
                     VSIX_PATH=$(find "$(Pipeline.Workspace)/vscode-extension-unsigned/" -type f -name "*.vsix" | head -n 1)
@@ -211,7 +211,7 @@ extends:
                     MANIFEST_PATH="$(Pipeline.Workspace)/vscode-extension-unsigned/extension.manifest"
                     SIGNATURE_PATH="$(Pipeline.Workspace)/vscode-extension-unsigned/extension.signature.p7s"
 
-                    npx vsce publish --pat "$TOKEN" --packagePath "$VSIX_PATH" --manifestPath "$MANIFEST_PATH" --signaturePath "$SIGNATURE_PATH"
+                    npx @vscode/vsce@3.7.1 publish --pat "$TOKEN" --packagePath "$VSIX_PATH" --manifestPath "$MANIFEST_PATH" --signaturePath "$SIGNATURE_PATH"
                 env:
                   TOKEN: ${{ parameters.token }}
 
