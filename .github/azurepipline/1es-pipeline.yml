@@ -42,6 +42,9 @@ extends:
         image: azcu-agent-amd64-windows-22-img
         os: windows
         hostArchitecture: amd64
+      sourceRepositoriesToScan:
+        include:
+        - repository: dalec-vscode-extension
 
     stages:
       - stage: Stage
