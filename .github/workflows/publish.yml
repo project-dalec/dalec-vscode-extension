@@ -142,14 +142,14 @@ jobs:
       # ------------------------
       # Publish to Marketplace (after signing & verification)
       # ------------------------
-      - name: Publish to VS Code Marketplace
-        env:
-          VS_MARKETPLACE_TOKEN: ${{ secrets.VS_MARKETPLACE_TOKEN }}
-          VSIX_FILE: ${{ steps.vsix.outputs.VSIX_FILE }}
-        run: |
-          npx @vscode/vsce publish \
-            --pat "$VS_MARKETPLACE_TOKEN" \
-            --packagePath "$VSIX_FILE"
+      # - name: Publish to VS Code Marketplace
+      #   env:
+      #     VS_MARKETPLACE_TOKEN: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+      #     VSIX_FILE: ${{ steps.vsix.outputs.VSIX_FILE }}
+      #   run: |
+      #     npx @vscode/vsce publish \
+      #       --pat "$VS_MARKETPLACE_TOKEN" \
+      #       --packagePath "$VSIX_FILE"
 
       # ------------------------
       # Create GitHub Release (Version Tag)
