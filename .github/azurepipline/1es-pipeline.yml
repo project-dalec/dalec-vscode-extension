@@ -92,6 +92,10 @@ extends:
 
               # Generate VSIX package
               - script: |
+                  echo "NPX to latest vsce and package extension..."
+                  npm install -g npm@latest
+                  echo "Check version..."
+                  npx --version
                   echo "Generating VSIX package..."
                   npx vsce package
                 displayName: "Run for VSIX Generation"
@@ -192,6 +196,7 @@ extends:
                     set -e
                     echo "Checking VSCE version..."
                     npx vsce --version
+
                     echo "Listing VSCE packages..."
                     npx vsce ls
                     echo "Showing VSCE extension info..."
