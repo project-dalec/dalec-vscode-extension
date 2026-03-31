@@ -10,7 +10,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Notification if on an older version of dalec frontend.
 - Fetch dalec schema from dalec frontend.
 
-## [0.0.4] [Adandoned]
+## [0.0.4] [Abandoned]
 
 - Inline target build codelens.
 - Notification if on an older version of dalec frontend.
