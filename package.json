@@ -194,7 +194,7 @@
     "webpack-cli": "^7.0.2"
   },
   "dependencies": {
-    "yaml": "^2.8.4"
+    "yaml": "^2.9.0"
   },
   "repository": {
     "type": "git",
