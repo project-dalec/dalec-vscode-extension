@@ -191,7 +191,7 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.60.1",
     "webpack": "^5.106.2",
-    "webpack-cli": "^7.0.2"
+    "webpack-cli": "^7.0.3"
   },
   "dependencies": {
     "yaml": "^2.9.0"
