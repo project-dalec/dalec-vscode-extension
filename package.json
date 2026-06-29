@@ -187,7 +187,7 @@
     "@vscode/test-cli": "^0.0.15",
     "@vscode/test-electron": "^3.0.0",
     "eslint": "^10.5.0",
-    "ts-loader": "^9.6.0",
+    "ts-loader": "^9.6.2",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.61.1",
     "webpack": "^5.107.2",
